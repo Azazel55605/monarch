@@ -13,7 +13,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 | Phase | Status | Exit evidence |
 | --- | --- | --- |
-| 0 — Definition/publication | In progress | Documentation prepared; publication verification pending |
+| 0 — Definition/publication | Done | [Public repository](https://github.com/Azazel55605/monarch), `main`; initial local/remote commit verified: `a7cd9bf` |
 | 1 — Read-only foundation | Planned | None |
 | 2 — Apply and recovery | Planned | None |
 | 3 — Qt manual editor | Planned | None |
@@ -29,7 +29,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M0.1 | Define product scope and public documentation | Done | [README](../README.md), [plan](implementation-plan.md) |
 | M0.2 | Research current Lua interfaces and risks | Done | [Research and upstream sources](compatibility.md) |
 | M0.3 | Define architecture and acceptance gates | Done | [Architecture](architecture.md), [validation](validation.md) |
-| M0.4 | Initialize and publish public Git repository | In progress | Verify public visibility, default branch, matching local/remote commit |
+| M0.4 | Initialize and publish public Git repository | Done | [Initial commit](https://github.com/Azazel55605/monarch/commit/a7cd9bf5ba0ff4d667acde197fe776f20a656e50); PUBLIC visibility, `main`, and matching local/remote SHA verified |
 | M1.1 | Package skeleton, dependency bounds, lint/type/test CI | Planned | Clean setup on supported Python/Arch packages |
 | M1.2 | Typed discovery, modes, inactive outputs, diagnostics | Planned | Synthetic fixtures plus read-only native comparison |
 | M1.3 | Version/provider/config-path capability detection | Planned | Supported, unknown, custom-path and missing-session cases |
@@ -62,3 +62,10 @@ completion. GitHub issues may mirror task IDs but must link back here.
 Start M1.1–M1.3 with a read-only package and inspector. M1.5 is the critical
 feasibility gate before any real-session mutation work. No application phases
 have started, and no application tests or native GUI acceptance have run.
+
+## Repository preparation checks
+
+On 2026-11-23, verified local links and whitespace across seven Markdown files,
+30 unique tracker task IDs, staged whitespace checks, and public-content review.
+The initial publication was verified through GitHub metadata and the remote branch
+SHA. These are documentation/repository checks, not application test results.
