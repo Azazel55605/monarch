@@ -26,8 +26,7 @@ only with fixed cabling when physically identical displays cannot be distinguish
 It does not follow renamed connectors or override a different known serial.
 Without that option, identical displays remain ambiguous and are not switched.
 
-The watcher waits for a stable topology before a preview. The editor comes to the
-foreground and shows the real guard deadline. **Keep** confirms runtime state;
+The watcher waits for a stable topology before a preview. The editor is shown and requests focus, with the real guard deadline visible. **Keep** confirms runtime state;
 Revert, timeout or client exit restores the captured baseline. Automatic previews
 never persist the startup monitor file. To save on login, make an explicit manual
 preview with that option selected. A selected layout already matching the session

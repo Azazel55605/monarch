@@ -44,6 +44,7 @@ The [guide](phase-5-guide.md) describes the operator's basic-monitor delegation.
 | Python 3.14.10, installed GUI wheel | 198 tests passed; installed wheel |
 | Ruff / formatting / strict mypy | Passed; 42 typed source files |
 | Source distribution / wheel | Built successfully |
+| Hosted Ubuntu CI, Python 3.12 / 3.13 / 3.14 | All jobs passed on `1993de6` |
 
 Coverage includes pure
 ranking, ties, subset extras, absent/duplicate serials, connector changes, fixed-port
@@ -52,6 +53,11 @@ manual preemption, policy/catalog revocation, retry limits, durable suppression,
 resume/reconnect invalidation, compositor-generation replacement, topology snapshot
 revert, refusal of same-set drift, real Qt offers/confirmation, dirty edits, and
 private autostart create/remove/conflict/quoting. Qt tests use the offscreen backend.
+
+[Passing hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45175992066)
+includes all 198 tests per version, lint/formatting, strict types and package builds.
+The workflow installs desktop-file-utils so entry validation is included rather
+than skipped. Later commit status remains independently visible in GitHub Actions.
 
 The generated desktop entry also passes the host's `desktop-file-validate`,
 including interpreter/catalog paths with spaces and percent characters. This is

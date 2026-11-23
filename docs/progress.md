@@ -70,7 +70,9 @@ See the [Phase 5 report](phase-5-report.md): automated policy/guard/Qt/lifecycle
 checks plus real virtual dock/undock, automatic Keep/Revert, topology-snapshot
 recovery and shared manual pin/resume. Physical hardware and fresh-login acceptance
 remain separate open gates. Default matching refuses ambiguous identities;
-explicit saved-port rules require fixed cabling.
+explicit saved-port rules require fixed cabling. All 198 tests passed on local
+Python 3.12–3.14, including installed GUI wheels on 3.12/3.14. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45175992066)
+passed all three versions on `1993de6`.
 
 ## Phase 4 checks
 
