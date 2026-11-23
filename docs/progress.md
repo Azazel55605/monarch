@@ -69,7 +69,8 @@ Physical apply/revert and native Qt editor acceptance have not run.
 See the [Phase 1 report](phase-1-report.md): 63 tests passed on Python 3.12.16,
 3.13.12 and 3.14.10; Ruff, strict mypy, wheel/source builds, read-only native
 three-output comparison, event subscription, and isolated nested Lua checks pass.
-Hosted CI status is tracked independently in GitHub Actions.
+Hosted CI passed for all three versions on `58b58b2`: [Checks](https://github.com/Azazel55605/monarch/actions/runs/45152448774).
+Later commit status is tracked independently in GitHub Actions.
 
 ## Repository preparation checks
 

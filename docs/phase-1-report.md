@@ -34,8 +34,10 @@ command injection rejection, subprocess timeout/output limits/cancellation,
 identity/path redaction, process metadata precedence, split/oversized event
 frames, event bursts, reconnect, missing sockets, and CLI validation.
 
-Hosted CI results are separate from these local results. Check the repository's
-Actions tab for the current commit's run; no hosted pass is implied by this table.
+Hosted CI also passed on implementation commit `58b58b2` for all three Python
+versions: [Checks run 45152448774](https://github.com/Azazel55605/monarch/actions/runs/45152448774).
+The workflow pins reviewed checkout/setup-uv action revisions and uv 0.13.9.
+Later commit status remains visible in the repository's Actions tab.
 
 ## Read-only native evidence
 
@@ -43,7 +45,8 @@ On an Arch-based Linux Wayland session with Hyprland 0.57.2 and three connected
 outputs, inspection matched direct hyprctl observations for dimensions, position,
 scale, transform, enabled state, and available mode handling. Provider `lua` and
 backend `drm` were reported through the status endpoint. Native event subscription
-connected successfully. No parent output settings were changed.
+connected successfully, and CLI watch mode exited cleanly on Ctrl+C without a
+traceback. No parent output settings were changed.
 
 The sandbox could access session IPC but could not resolve the compositor process
 in `/proc`; configuration detection correctly returned unknown. Custom paths,
