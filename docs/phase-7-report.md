@@ -97,9 +97,10 @@ active VRR, the other has inactive VRR and advertised HDR metadata. Active VRR i
 a confirmed blocker in the current guard. HDR metadata alone is not a blocker,
 and these screenshots do not establish every SDR parameter checked by the guard.
 
-The current model enables basic draft controls independently of write readiness.
-Whether those controls are also greyed out, rather than only Preview being
-unavailable, needs clarification. Physical Keep/Revert, persistence, docking,
+Clarification confirms that Set up monitor management and Preview changes are
+greyed out. Both use the same advanced-state blocker. This prevents the normal
+setup/apply workflow even though basic draft controls are enabled independently
+of write readiness. Physical Keep/Revert, persistence, docking,
 resume and startup acceptance remain untested. The follow-up investigation is
 preserving existing VRR policy through basic edits and recovery, rather than
 requiring the user to turn it off or simply removing the recovery gate. No

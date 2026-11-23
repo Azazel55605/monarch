@@ -70,7 +70,8 @@ AUR submission has been performed.
 
 Target-session theme, icon/tray, help, discovery, diagnostics and status banner
 are confirmed working by user testing. Active VRR blocks layout application with
-the current basic recovery guard; draft-control availability needs clarification.
+the current basic recovery guard. The user confirms both Set up monitor management
+and Preview changes are greyed out by that gate.
 See the [feedback record](phase-7-report.md#user-feedback--2026-11-23).
 Physical preview/recovery acceptance remains open. Investigate preservation of
 existing VRR policy before asking for that part of the test again.
