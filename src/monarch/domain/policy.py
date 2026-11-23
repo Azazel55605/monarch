@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+from monarch.domain.advanced import basic_issues
 from monarch.domain.layout import Layout
 from monarch.domain.monitors import Monitor
 from monarch.domain.profiles import Profile, candidates_for, resolve
@@ -127,6 +128,12 @@ def choose(
 ) -> Selection:
     if not policy.enabled:
         return Selection("Automatic switching is disabled.")
+    advanced = basic_issues(monitors)
+    if advanced:
+        return Selection(
+            "Advanced state is outside the verified basic guard; preserving layout.",
+            rejected=advanced,
+        )
     by_id = {p.id: p for p in profiles}
     eligible = []
     rejected = []

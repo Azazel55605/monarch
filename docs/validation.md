@@ -1,8 +1,9 @@
 # Validation and release gates
 
-Status: Phase 1–5 automated and native checks have run; see the
+Status: Phase 1–6 automated and native checks have run; see the
 [Phase 2 evidence](phase-2-report.md), [Phase 3 evidence](phase-3-report.md),
-[Phase 4 evidence](phase-4-report.md), and [Phase 5 evidence](phase-5-report.md).
+[Phase 4 evidence](phase-4-report.md), [Phase 5 evidence](phase-5-report.md),
+and [Phase 6 evidence](phase-6-report.md).
 Native GUI/apply/recovery checks use a real nested compositor with virtual outputs.
 Physical GUI startup/discovery is verified read-only; parent modesetting and the
 full release matrix remain open. Automated Qt tests use offscreen rendering.

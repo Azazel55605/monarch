@@ -29,6 +29,8 @@ from PySide6.QtWidgets import (
 )
 
 from monarch.backends.hyprland.inspector import Inspection
+from monarch.backends.hyprland.support import blockers
+from monarch.domain.advanced import AdvancedState
 from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
@@ -36,6 +38,7 @@ from monarch.domain.profiles import Profile
 from monarch.errors import MonarchError
 from monarch.ui.automation import AutomationDialog
 from monarch.ui.canvas import LayoutCanvas
+from monarch.ui.diagnostics import AdvancedDialog, DiagnosticsDialog
 from monarch.ui.dialogs import ConfirmationDialog, IntegrationDialog
 from monarch.ui.identify import Identification
 from monarch.ui.model import EditorModel
@@ -64,6 +67,8 @@ class MainWindow(QMainWindow):
         self.model = EditorModel()
         self.backend = backend
         self.quit_on_close = quit_on_close
+        self.advanced_dialog: AdvancedDialog | None = None
+        self.diagnostics_dialog: DiagnosticsDialog | None = None
         self.automation_dialog: AutomationDialog | None = None
         self.startup_profile = startup_profile
         self._profile_loading = False
@@ -81,6 +86,10 @@ class MainWindow(QMainWindow):
         if theme is not None:
             appearance = self.menuBar().addMenu("Appearance")
             theme.menu(appearance)
+        help_menu = self.menuBar().addMenu("Help")
+        self.diagnostics_action = help_menu.addAction(
+            "Redacted diagnostics…", self.show_diagnostics
+        )
         central = QWidget()
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
@@ -230,6 +239,9 @@ class MainWindow(QMainWindow):
         self.display_info = QLabel("")
         self.display_info.setWordWrap(True)
         form.addRow(self.display_info)
+        self.advanced_button = QPushButton("Advanced settings…")
+        self.advanced_button.clicked.connect(self.show_advanced)
+        form.addRow(self.advanced_button)
         self.properties = properties
         self.splitter.addWidget(properties)
         self.splitter.setStretchFactor(0, 1)
@@ -281,6 +293,9 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Escape"), self, self.identification.close)
         QShortcut(QKeySequence("Ctrl+R"), self, self.refresh)
         if backend:
+            backend.diagnostics_ready.connect(self.diagnostics_received)
+            backend.diagnostics_failed.connect(self.diagnostics_error)
+            backend.diagnostics_saved.connect(self.diagnostics_exported)
             backend.automation_state.connect(self.automation_status)
             backend.automation_settings.connect(self.automation_settings)
             backend.automation_offer.connect(self.automatic_offer)
@@ -450,6 +465,15 @@ class MainWindow(QMainWindow):
 
     def update_status(self) -> None:
         error = self.model.error()
+        if not error and self.model.inspection:
+            error = next(
+                (
+                    message
+                    for code, message in blockers(self.model.inspection)
+                    if code != "unverified_config"
+                ),
+                "",
+            )
         self.validation.setText(
             error
             or (
@@ -493,10 +517,50 @@ class MainWindow(QMainWindow):
         ):
             button.setEnabled(not self.model.busy and not self._profile_loading)
         self.persist.setEnabled(not self.model.busy and self.ready)
+        self.diagnostics_action.setEnabled(not self.model.busy)
+        issues = blockers(self.model.inspection) if self.model.inspection else ()
+        self.setup_button.setEnabled(
+            not self.model.busy and not self._profile_loading and not issues
+        )
+        self.setup_button.setToolTip("\n".join(message for _, message in issues))
         self.recover_button.setVisible(
             "recovery" in self.ownership_reason.lower()
             or "unfinished" in self.ownership_reason.lower()
         )
+
+    def show_advanced(self) -> None:
+        state = AdvancedState()
+        if self.model.inspection:
+            monitor = next(
+                (m for m in self.model.inspection.monitors if m.name == self.model.selected), None
+            )
+            if monitor:
+                state = monitor.advanced
+        self.advanced_dialog = AdvancedDialog(state, self)
+        self.advanced_dialog.show()
+
+    def show_diagnostics(self) -> None:
+        self.diagnostics_dialog = DiagnosticsDialog(self)
+        if self.backend:
+            self.diagnostics_dialog.save_requested.connect(
+                lambda path, data: self.backend.submit("diagnostics-save", path, data)
+            )
+            self.backend.submit("diagnostics")
+        self.diagnostics_dialog.show()
+
+    def diagnostics_received(self, data: dict[str, Any]) -> None:
+        if self.diagnostics_dialog:
+            self.diagnostics_dialog.receive(data)
+
+    def diagnostics_error(self, message: str) -> None:
+        if self.diagnostics_dialog:
+            self.diagnostics_dialog.status.setText(message)
+
+    def diagnostics_exported(self) -> None:
+        if self.diagnostics_dialog:
+            self.diagnostics_dialog.status.setText(
+                "Saved a new private report. Existing files are never replaced."
+            )
 
     def automation_status(self, state: dict[str, Any]) -> None:
         self.automatic_status.setText(state["reason"])

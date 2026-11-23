@@ -3,12 +3,12 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 5 software implemented — opt-in automation (`0.1.0.dev5`).**
+**Status: Phase 6 implemented — compatibility and diagnostics alpha (`0.1.0.dev6`).**
 Named profiles, guarded quick switching and opt-in automatic previews are available.
 Physical dock/resume acceptance remains open in the tracker. There is no stable
 release or published Arch/AUR package yet.
 
-![Monarch editing a synthetic multi-display layout](docs/assets/monarch-automation.png)
+![Monarch showing advanced-state observations and write gates](docs/assets/monarch-advanced.png)
 
 ## Run the editor
 
@@ -37,8 +37,16 @@ Use **Automation…** to select eligible profiles and explicitly enable matching
 Automatic previews still require Keep/Revert. Login startup is a separate opt-in.
 See the [automation guide](docs/phase-5-guide.md).
 
+Use **Advanced settings…** for observed VRR/format/color/HDR state and explicit
+write limitations. **Help → Redacted diagnostics…** or `monarch diagnose` collects
+a support report. Advanced writes remain unavailable pending hardware recovery
+evidence; [Phase 6 guide](docs/phase-6-guide.md) explains the stricter basic-state gate.
+
 ## Available now
 
+- Read-only advanced observations, compatibility explanations and gated writes.
+- Redacted GUI/CLI diagnostics with explicit private exports and conflict actions.
+- Tagged mirror-ID resolution with refusal of unknown targets.
 - Opt-in exact/subset topology matching, priorities, tie/no-match preservation.
 - Shared manual pin/resume, debounce, retry limits and a single automatic session owner.
 - Automatic guarded previews and explicit XDG autostart controls.
@@ -60,8 +68,9 @@ See the [automation guide](docs/phase-5-guide.md).
 The current write baseline is a clean Hyprland 0.57.2 Lua release. Default XDG
 config targets additionally require the verified hyprutils search implementation;
 other setups remain inspectable. Advanced HDR, VRR, color and custom modeline
-rules are outside the desktop integration contract until later work. Advanced settings
-and release packaging remain planned.
+rules are outside the desktop integration contract. Active VRR, non-8-bit formats,
+non-sRGB/default SDR state or unknown required observations block the basic guard.
+Advanced writes are explicitly deferred; release packaging remains planned.
 
 ## Validation
 
@@ -71,6 +80,7 @@ scales. Read-only GUI startup was also checked on a physical three-output deskto
 Those are separate evidence layers: physical mode changes, docking/resume,
 hardware failure recovery and the full release matrix are not certified.
 
+- [Phase 6 evidence and advanced-write deferrals](docs/phase-6-report.md)
 - [Phase 5 evidence and open hardware gate](docs/phase-5-report.md)
 - [Phase 4 evidence](docs/phase-4-report.md)
 - [Phase 3 evidence](docs/phase-3-report.md)
@@ -112,6 +122,7 @@ The Qt dependency is PySide6/Qt 6. Native probes require Wayland and render acce
 uv run --extra gui --group gui-dev python tools/probe_gui.py
 uv run --extra gui --group gui-dev python tools/probe_profiles.py
 uv run --extra gui --group gui-dev python tools/probe_automation.py
+uv run --extra gui --group gui-dev python tools/probe_compatibility.py
 uv run python tools/probe_recovery.py
 ```
 

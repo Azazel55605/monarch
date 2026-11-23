@@ -30,13 +30,16 @@ class Paths:
     state: Path
 
     @classmethod
-    def for_session(cls, session: Session, state_home: Path | None = None) -> "Paths":
+    def for_session(
+        cls, session: Session, state_home: Path | None = None, *, create: bool = True
+    ) -> "Paths":
         key = digest((str(session.runtime_dir) + "/" + session.signature).encode())[:24]
         if state_home is None:
             state_home = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
         paths = cls(session.runtime_dir / "monarch" / key, state_home / "monarch" / key)
-        private_dir(paths.runtime)
-        private_dir(paths.state)
+        if create:
+            private_dir(paths.runtime)
+            private_dir(paths.state)
         return paths
 
     @property

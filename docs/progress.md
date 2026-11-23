@@ -19,7 +19,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | 3 — Qt manual editor | Done | [Phase 3 evidence](phase-3-report.md); Qt tests, native fractional-scale GUI and read-only physical startup |
 | 4 — Profiles/quick switch | Done | [Phase 4 evidence](phase-4-report.md) |
 | 5 — Automatic switching | In progress | [Software and virtual-hotplug evidence](phase-5-report.md); physical dock/resume/login gate open |
-| 6 — Advanced settings | Planned | None |
+| 6 — Advanced settings | Done | [Phase 6 evidence](phase-6-report.md); read-only gates/diagnostics and explicit advanced-write deferrals |
 | 7 — Packaging/release | Planned | None |
 
 ## Tasks
@@ -50,9 +50,9 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M5.1 | Policy matching, priority, ambiguity and manual pin | Done | [Policy](../src/monarch/domain/policy.py), [matching tests](../tests/test_policy.py), shared session overrides |
 | M5.2 | Watcher, debounce, backoff and feedback suppression | Done | [Engine](../src/monarch/services/automation.py), [fault/timing tests](../tests/test_automation.py), [native virtual hotplug](phase-5-report.md) |
 | M5.3 | Opt-in autostart and native dock/resume acceptance | In progress | [Autostart controls](../src/monarch/storage/automation.py) and virtual lifecycle pass; physical dock/resume/fresh-login acceptance pending |
-| M6.1 | Capability-gated advanced controls and recovery | Planned | Per-option hardware evidence or explicit deferral |
-| M6.2 | Compatibility policy and scope decisions | Planned | Legacy/modeline decisions; tested release matrix |
-| M6.3 | Redacted diagnostics and error/help polish | Planned | Useful report without default identifiers/config leakage |
+| M6.1 | Capability-gated advanced controls and recovery | Done | [Observed state/gates](../src/monarch/domain/advanced.py), [guard tests](../tests/test_advanced.py); advanced writes explicitly deferred with evidence requirements |
+| M6.2 | Compatibility policy and scope decisions | Done | [Compatibility guide](phase-6-guide.md), tagged mirror-ID normalization; legacy writer/modelines deferred |
+| M6.3 | Redacted diagnostics and error/help polish | Done | [Read-only collector](../src/monarch/services/diagnostics.py), [privacy/export tests](../tests/test_diagnostics.py), native Qt/physical read-only report checks |
 | M7.1 | Desktop assets, notices, help and Arch PKGBUILD | Planned | Packaging review; no implied AUR publication |
 | M7.2 | Clean install/uninstall and full native acceptance | Planned | [Validation matrix](validation.md), limitations recorded |
 | M7.3 | CI artifacts, changelog and release readiness | Planned | Reproducible artifacts and completed release checklist |
@@ -62,7 +62,17 @@ completion. GitHub issues may mirror task IDs but must link back here.
 Complete the Phase 5 physical dock/resume/fresh-login gate on a reviewed basic
 monitor configuration. Software is implemented and opt-in; no host settings were
 enabled or changed during implementation. See the [guide](phase-5-guide.md) and
-[report](phase-5-report.md). Phase 6 advanced controls remain planned.
+[report](phase-5-report.md). Phase 6 observation/compatibility work is complete with
+advanced writes explicitly deferred. Phase 7 packaging remains planned.
+
+## Phase 6 checks
+
+See the [Phase 6 report](phase-6-report.md) and [guide](phase-6-guide.md).
+Advanced settings remain read-only. Known non-basic/unknown active state blocks
+unsafe basic transactions; diagnostics and conflict reporting are redacted and
+read-only. All 228 tests pass on local Python 3.12–3.14, including installed
+GUI wheels on 3.12/3.14. Native basic recovery, virtual automation, mirror and Qt checks are
+separate from a read-only physical report check. Hardware write gates remain open.
 
 ## Phase 5 checks
 

@@ -112,6 +112,10 @@ class Layout:
             raise MonarchError("Connected topology changed or layout omits connected outputs.")
         for output in self.outputs:
             monitor = live[output.name]
+            if not monitor.mirror_known:
+                raise MonarchError(
+                    "The compositor mirror target is unresolved; refresh before applying."
+                )
             if (output.make, output.model, output.serial) != (
                 monitor.make,
                 monitor.model,
@@ -134,6 +138,8 @@ class Layout:
             return False
         for output in self.outputs:
             m = live[output.name]
+            if not m.mirror_known:
+                return False
             if (output.make, output.model, output.serial) != (m.make, m.model, m.serial):
                 return False
             if m.disabled is None or output.enabled == m.disabled:
@@ -160,6 +166,8 @@ class Layout:
     def capture(cls, monitors: tuple[Monitor, ...]) -> "Layout":
         outputs = []
         for m in monitors:
+            if not m.mirror_known:
+                raise MonarchError("Cannot capture an unresolved compositor mirror target.")
             if m.disabled is None:
                 raise MonarchError("Cannot capture an output with unknown enabled state.")
             candidates = [

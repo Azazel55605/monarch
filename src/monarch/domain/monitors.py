@@ -2,10 +2,11 @@
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from monarch.domain.advanced import AdvancedState
 from monarch.errors import MonarchError
 
 _MODE = re.compile(r"(?P<w>\d+)x(?P<h>\d+)@(?P<r>\d+(?:\.\d+)?)Hz")
@@ -46,6 +47,8 @@ class Monitor:
     mirror_of: str | None
     modes: tuple[Mode, ...]
     warnings: tuple[str, ...] = ()
+    advanced: AdvancedState = field(default_factory=AdvancedState)
+    mirror_known: bool = True
 
     @property
     def logical_size(self) -> tuple[float, float] | None:
@@ -80,6 +83,19 @@ def parse_monitors(data: object) -> tuple[Monitor, ...]:
         raise MonarchError("Monitor response must be a JSON array; discovery is unavailable.")
     monitors: list[Monitor] = []
     names: set[str] = set()
+    known_names = {
+        item["name"]
+        for item in data
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    identifiers: dict[str, list[str]] = {}
+    for item in data:
+        if (
+            isinstance(item, dict)
+            and type(item.get("id")) is int
+            and isinstance(item.get("name"), str)
+        ):
+            identifiers.setdefault(str(item["id"]), []).append(item["name"])
     for item in data:
         if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item["name"]:
             raise MonarchError("Monitor response contains an invalid output name.")
@@ -128,12 +144,23 @@ def parse_monitors(data: object) -> tuple[Monitor, ...]:
                     modes.append(mode)
             except ValueError:
                 warnings.append("Unrecognized available mode omitted")
-        mirror = item.get("mirrorOf")
-        if mirror in ("none", "", None):
-            mirror = None
-        elif not isinstance(mirror, str):
-            mirror = None
-            warnings.append("Unrecognized mirror target")
+        raw_mirror = item.get("mirrorOf")
+        mirror: str | None = None
+        mirror_known = True
+        if raw_mirror not in ("none", "", None):
+            key = str(raw_mirror) if type(raw_mirror) in (str, int) else ""
+            targets = identifiers.get(key, [])
+            if len(targets) == 1:
+                mirror = targets[0]
+            elif (
+                isinstance(raw_mirror, str)
+                and not raw_mirror.isdecimal()
+                and raw_mirror in known_names
+            ):
+                mirror = raw_mirror
+            else:
+                mirror_known = False
+                warnings.append("Unresolved mirror target")
 
         def text(key: str, data: dict[str, Any] = item) -> str:
             value = data.get(key)
@@ -157,6 +184,8 @@ def parse_monitors(data: object) -> tuple[Monitor, ...]:
                 mirror_of=mirror,
                 modes=tuple(modes),
                 warnings=tuple(warnings),
+                advanced=AdvancedState.parse(item),
+                mirror_known=mirror_known,
             )
         )
     return tuple(monitors)

@@ -112,3 +112,20 @@ Default config lookup follows tagged hyprutils 0.14.3/0.14.4 and is coupled to
 change selection stay unsupported when reached. Explicit paths retain ordinary
 reload. A selected file alone still cannot authorize writes. See the
 [Phase 3 guide](phase-3-guide.md) and [native evidence](phase-3-report.md).
+
+## Phase 6 scope and evidence gates
+
+[Phase 6](phase-6-guide.md) adds strict advanced observations and a known-state
+filter, while deferring all advanced writes until per-option hardware recovery
+evidence exists. VRR active state is not a VRR policy; current format is not a list
+of supported depths; EDID HDR metadata is not validated HDR output; ICC rule/file
+state is not reconstructible from monitor IPC. Unknown values remain unknown.
+The basic writer requires known 8-bit sRGB/default SDR with inactive VRR on active
+outputs. Hidden advanced/global rules still fall outside the ownership contract.
+
+Legacy hyprlang writing/conversion and custom-modeline editing are out of scope
+for this alpha. Layout/profile/policy schemas retain their documented versions and
+refuse unsupported extensions. Tagged mirror IDs are normalized to observed names;
+unresolved targets cannot be captured or applied as independent outputs. Read-only
+diagnostics omit identifiers, paths, raw data/errors and unrecognized strings.
+See the [implementation evidence](phase-6-report.md) for acceptance and deferrals.

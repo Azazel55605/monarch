@@ -69,3 +69,10 @@ confirmation. Virtual outputs require explicit saved-port bindings because their
 hardware identity fields are empty; do not weaken physical ambiguity checks to
 make fixtures pass. Autostart tests use temporary XDG roots and must not install a
 host entry. Record physical docking/resume/login acceptance separately.
+
+Phase 6 uses `tools/probe_compatibility.py` for native read-only feature gates,
+redacted export, basic apply/revert and tagged mirror-ID resolution. Tests must
+distinguish observations, hardware advertisements and validated writes. Advanced
+writes remain deferred; do not use virtual-output success to enable physical
+VRR/HDR/ICC/depth controls. Public diagnostic fixtures must test injected secrets,
+unknown strings and no collection-time directory creation.

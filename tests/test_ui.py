@@ -617,3 +617,87 @@ def test_unchanged_automatic_polling_preserves_canvas_items(
         widget._closing = True
         widget.close()
         qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+
+
+def test_advanced_observation_dialog_is_read_only_and_active_state_blocks_apply(
+    window, qtbot, inspection
+):
+    changed = replace(
+        inspection,
+        monitors=(
+            replace(
+                inspection.monitors[0],
+                advanced=replace(
+                    inspection.monitors[0].advanced, vrr_active=True, current_format="XRGB2101010"
+                ),
+            ),
+            inspection.monitors[1],
+        ),
+    )
+    window.receive(changed)
+    window.position_x.setValue(-100)
+    assert not window.apply.isEnabled()
+    assert "verified" in window.validation.text() or "VRR" in window.validation.text()
+    window.show_advanced()
+    dialog = window.advanced_dialog
+    qtbot.addWidget(dialog)
+    assert dialog.table.item(0, 1).text().startswith("Active: Yes")
+    assert "10" in dialog.table.item(1, 1).text()
+    assert all(dialog.table.item(row, 2).text() == "Unavailable" for row in range(5))
+    dialog.accept()
+
+
+def test_advanced_changes_mark_dirty_drafts_stale(window, inspection):
+    window.position_x.setValue(-100)
+    draft = window.model.draft
+    changed = replace(
+        inspection,
+        monitors=(
+            replace(
+                inspection.monitors[0],
+                advanced=replace(inspection.monitors[0].advanced, color_preset="hdr"),
+            ),
+            inspection.monitors[1],
+        ),
+    )
+    window.receive(changed)
+    assert window.model.stale and window.model.draft == draft
+    assert not window.apply.isEnabled()
+
+
+def test_worker_diagnostics_are_redacted_and_export_without_monitor_mutations(
+    qtbot, guard_setup, tmp_path
+):
+    import json
+
+    from monarch.ui.worker import BackendThread
+
+    coordinator, store, baseline, desired, state = guard_setup
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready)
+        widget.show_diagnostics()
+        qtbot.waitUntil(lambda: bool(widget.diagnostics_dialog.data), timeout=10000)
+        data = widget.diagnostics_dialog.data
+        assert data["redacted"]
+        assert "DEMO-001" not in json.dumps(data)
+        path = tmp_path / "support.json"
+        widget.diagnostics_dialog.save_requested.emit(path, data)
+        qtbot.waitUntil(lambda: path.exists(), timeout=10000)
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert not coordinator.paths.status()
+        assert json.loads(state.read_text()).get("mutations", 0) == 0
+        widget.diagnostics_dialog.accept()
+    finally:
+        widget._closing = True
+        widget.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)

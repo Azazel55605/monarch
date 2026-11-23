@@ -144,7 +144,7 @@ wheels = [
 
 [[package]]
 name = "monarch-displays"
-version = "0.1.0.dev5"
+version = "0.1.0.dev6"
 source = { editable = "." }
 
 [package.optional-dependencies]

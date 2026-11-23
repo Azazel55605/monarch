@@ -232,3 +232,19 @@ interpreter/catalog. It launches a minimized Qt/tray confirmation surface, not a
 unattended auto-confirm daemon. Plain Hyprland needs a session autostart host or
 an explicit existing-session launcher. Physical dock/resume/login acceptance is
 separate from the implemented software and native virtual-output checks.
+
+## Phase 6 observation and support boundary
+
+`domain/advanced.py` parses whitelisted state and produces read-only feature gates.
+The guard checks known basic state before and during writes; unsupported external
+advanced drift pauses physical recovery and retains its journal. Disabled-output
+metadata is not treated as current active state. ICC/global dynamics still require
+the existing operator-reviewed exclusive basic contract. No advanced layout schema
+or writer is introduced; unverified writes remain unavailable. Tagged mirror IDs
+resolve through the full topology; unknown targets are explicitly unresolved.
+
+`services/diagnostics.py` collects categorized support snapshots without creating
+missing storage. `services/reporting.py` allowlists values and omits free-form
+private data. CLI and Qt Help share the collector and private/no-clobber exporter.
+[Phase 6 behavior and decisions](phase-6-guide.md) apply in addition to historical
+guides; their earlier basic-setting promises do not cover advanced active state.

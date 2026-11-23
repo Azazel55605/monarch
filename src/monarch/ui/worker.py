@@ -13,12 +13,15 @@ from monarch.backends.hyprland.commands import Hyprctl
 from monarch.backends.hyprland.events import EventWatcher
 from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
+from monarch.backends.hyprland.support import blockers
+from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import MappingRequired, resolve
 from monarch.errors import MonarchError
 from monarch.services.automation import Automation
 from monarch.services.coordinator import Coordinator, Preview
+from monarch.services.diagnostics import collect, save
 from monarch.services.state import TERMINAL
 from monarch.storage.automation import Autostart, PolicyStore, control, pin
 from monarch.storage.integration import IntegrationPlan
@@ -32,6 +35,9 @@ class BackendThread(QThread):
     automation_offer = Signal(object, object)
     automation_saved = Signal()
     automation_failed = Signal(str)
+    diagnostics_ready = Signal(object)
+    diagnostics_failed = Signal(str)
+    diagnostics_saved = Signal()
     observed = Signal(object)
     failed = Signal(str)
     pending = Signal(float)
@@ -128,7 +134,29 @@ class BackendThread(QThread):
 
         async def dispatch() -> None:
             try:
-                if operation == "ui-state":
+                if operation in {"diagnostics", "diagnostics-save"}:
+                    try:
+                        if self.previewing or self.handle is not None:
+                            raise MonarchError(
+                                "Wait for the active preview before collecting diagnostics."
+                            )
+                        if operation == "diagnostics":
+                            self.diagnostics_ready.emit(
+                                await collect(
+                                    session=self.session,
+                                    env=self.env,
+                                    directory=self.directory,
+                                    executable=self.executable,
+                                )
+                            )
+                        else:
+                            path, data = args
+                            assert isinstance(path, Path) and isinstance(data, dict)
+                            save(path, data)
+                            self.diagnostics_saved.emit()
+                    except (MonarchError, OSError, ValueError) as exc:
+                        self.diagnostics_failed.emit(str(exc))
+                elif operation == "ui-state":
                     self.ui_idle = bool(args[0])
                     if (
                         len(args) > 1
@@ -214,7 +242,10 @@ class BackendThread(QThread):
                     pass
         ready = False
         reason = "Set up monitor management to enable guarded changes."
-        if self.directory is not None:
+        compatibility = blockers(inspection)
+        if compatibility:
+            reason = compatibility[0][1]
+        elif self.directory is not None:
             try:
                 store = Managed(self.directory)
                 store.read()
@@ -291,6 +322,7 @@ class BackendThread(QThread):
             raise MonarchError("Desktop integration requires the supported Hyprland Lua baseline.")
         if not inspection.config.verified or inspection.config.path != root:
             raise MonarchError("Select the verified configuration root used by this compositor.")
+        require_basic(inspection.monitors)
         self._plan = IntegrationPlan.prepare(root, dependencies)
         self._plan_layout = Layout.capture(inspection.monitors)
         self._plan = replace(self._plan, baseline_preview=self._plan_layout)
@@ -308,6 +340,7 @@ class BackendThread(QThread):
             or not inspection.capabilities.lua_advertised
         ):
             raise MonarchError("The configuration target changed after preview; prepare it again.")
+        require_basic(inspection.monitors)
         layout = Layout.capture(inspection.monitors)
         if self._plan_layout is None or not self._plan_layout.matches(inspection.monitors):
             raise MonarchError("Monitor state changed after integration preview; preview it again.")

@@ -26,7 +26,9 @@ def fingerprint(monitors: tuple[Monitor, ...]) -> tuple[object, ...]:
             m.transform,
             m.disabled,
             m.mirror_of,
+            m.mirror_known,
             m.modes,
+            m.advanced,
         )
         for m in monitors
     )

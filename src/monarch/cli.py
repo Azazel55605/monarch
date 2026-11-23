@@ -6,9 +6,7 @@ import json
 import math
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any
 
 from monarch import __version__
 from monarch.backends.hyprland.commands import Hyprctl
@@ -18,68 +16,9 @@ from monarch.backends.hyprland.session import Session
 from monarch.errors import MonarchError
 from monarch.services.automation_cli import add_automation_commands, execute_automation
 from monarch.services.cli import add_commands, execute
+from monarch.services.diagnostics import collect, save
 from monarch.services.profiles import add_profile_commands, execute_profile
-
-
-def report(inspection: Inspection, *, identifiers: bool = False) -> dict[str, Any]:
-    """Reports redact identities and paths by default, including free-form fields."""
-    monitors = []
-    labels = {monitor.name: f"display-{i}" for i, monitor in enumerate(inspection.monitors, 1)}
-    for monitor in inspection.monitors:
-        monitors.append(
-            {
-                "output": monitor.name if identifiers else labels[monitor.name],
-                "description": monitor.description if identifiers else "[redacted]",
-                "make": monitor.make if identifiers else "[redacted]",
-                "model": monitor.model if identifiers else "[redacted]",
-                "serial": monitor.serial if identifiers else "[redacted]",
-                "width": monitor.width,
-                "height": monitor.height,
-                "refresh_hz": str(monitor.refresh_hz) if monitor.refresh_hz is not None else None,
-                "x": monitor.x,
-                "y": monitor.y,
-                "scale": monitor.scale,
-                "transform": monitor.transform,
-                "disabled": monitor.disabled,
-                "mirror_of": (
-                    monitor.mirror_of
-                    if identifiers
-                    else labels.get(monitor.mirror_of or "", "unresolved")
-                    if monitor.mirror_of
-                    else None
-                ),
-                "logical_size": monitor.logical_size,
-                "modes": [
-                    {"width": m.width, "height": m.height, "refresh_hz": str(m.refresh_hz)}
-                    for m in monitor.modes
-                ],
-                "warnings": monitor.warnings,
-            }
-        )
-    capabilities = asdict(inspection.capabilities)
-    # Unknown backend strings are not trusted free-form report content.
-    if not identifiers and capabilities["backend"] not in ("drm", "wayland", "unknown"):
-        capabilities["backend"] = "unknown"
-    if not identifiers and capabilities["version"] is not None:
-        import re
-
-        if not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][\w.-]+)?", capabilities["version"]):
-            capabilities["version"] = "unknown"
-    return {
-        "schema_version": 1,
-        "capabilities": capabilities,
-        "config": {
-            "path": str(inspection.config.path)
-            if identifiers and inspection.config.path
-            else "[redacted]"
-            if inspection.config.path
-            else None,
-            "source": inspection.config.source,
-            "verified": inspection.config.verified,
-        },
-        "monitors": monitors,
-        "diagnostics": inspection.diagnostics,
-    }
+from monarch.services.reporting import report as report
 
 
 def render(inspection: Inspection, *, json_output: bool, identifiers: bool) -> None:
@@ -88,7 +27,8 @@ def render(inspection: Inspection, *, json_output: bool, identifiers: bool) -> N
         print(json.dumps(data, indent=None, ensure_ascii=True), flush=True)
         return
     caps = data["capabilities"]
-    print(f"Hyprland {caps['version'] or 'unknown'} | provider: {caps['provider']} | read-only")
+    display_version = json.dumps(caps["version"] or "unknown", ensure_ascii=True)[1:-1]
+    print(f"Hyprland {display_version} | provider: {caps['provider']} | read-only")
     for monitor in data["monitors"]:
         state = {True: "disabled", False: "enabled", None: "unknown"}[monitor["disabled"]]
         # Escape control sequences even with --show-identifiers.
@@ -158,6 +98,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=3.0,
         help="Per-command timeout in seconds (default: 3)",
     )
+    diagnose = commands.add_parser(
+        "diagnose", help="Collect a redacted read-only JSON support report"
+    )
+    diagnose.add_argument("--output", type=Path, help="Export privately to a new JSON filename")
+    diagnose.add_argument(
+        "--directory", type=Path, help="Inspect existing owned/registered storage"
+    )
     gui = commands.add_parser("gui", help="Open the Qt monitor editor")
     gui.add_argument("--directory", type=Path, help="Owned or registered monitor storage")
     gui.add_argument("--tray", action="store_true", help="Show an optional profile tray menu")
@@ -208,6 +155,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 2
     try:
+        if args.command == "diagnose":
+            directory = args.directory.expanduser().absolute() if args.directory else None
+            data = asyncio.run(collect(directory=directory))
+            if args.output:
+                save(args.output.expanduser().absolute(), data)
+                print("Saved a redacted diagnostic report to a new private file.")
+            else:
+                print(json.dumps(data, indent=2, ensure_ascii=True, allow_nan=False))
+            return 0
         if args.command == "automation":
             return execute_automation(args)
         return asyncio.run(

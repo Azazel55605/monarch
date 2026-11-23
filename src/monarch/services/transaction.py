@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout, Output, ordered
 from monarch.domain.monitors import Monitor
 from monarch.errors import MonarchError
@@ -72,6 +73,7 @@ class Transaction:
             raise MonarchError("Active config is not the verified Monarch-owned root.")
         disk_layout, disk_bytes = managed.read()
         monitors = await self.backend.observe()
+        require_basic(monitors)
         desired.validate(monitors)
         baseline = disk_layout
         if self.paths.confirmed.exists():
@@ -122,7 +124,9 @@ class Transaction:
                 self.authorize()
             assert self.record is not None
             self.managed.check(self.record["disk_digest"])
-            layout.validate(await self.backend.observe())
+            live_before = await self.backend.observe()
+            require_basic(live_before)
+            layout.validate(live_before)
             await self.backend.set_output(output)
             # A successful IPC reply is not proof that a destination became
             # usable. Observe it before proceeding to any source disable.
@@ -130,6 +134,7 @@ class Transaction:
             while True:
                 self.check_session()
                 live = await self.backend.observe()
+                require_basic(live)
                 layout.validate(live)
                 selected = tuple(m for m in live if m.name == output.name)
                 if Layout((output,)).matches(selected):
@@ -145,6 +150,7 @@ class Transaction:
         while True:
             self.check_session()
             live = await self.backend.observe()
+            require_basic(live)
             # Topology and identity changes fail immediately, not after settling.
             layout.validate(live)
             if layout.matches(live):
@@ -181,7 +187,9 @@ class Transaction:
         self.check_session()
         self.managed.check(self.record["disk_digest"])
         desired = Layout.parse(self.record["desired"])
-        if not desired.matches(await self.backend.observe()):
+        live = await self.backend.observe()
+        require_basic(live)
+        if not desired.matches(live):
             raise MonarchError("Monitor topology or layout changed during preview.")
         await self.backend.check_errors()
 
@@ -238,6 +246,7 @@ class Transaction:
                     self.record["disk_content"].encode(),
                     expected=digest(current),
                 )
+            require_basic(await self.backend.observe())
             await self.backend.reload()
             baseline = Layout.parse(self.record["baseline"])
             live = await self.backend.observe()

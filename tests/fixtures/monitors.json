@@ -1,19 +1,69 @@
 [
   {
-    "name": "DP-EXAMPLE", "description": "Example Display DEMO-001",
-    "make": "Example", "model": "Panel", "serial": "DEMO-001",
-    "width": 2560, "height": 1440, "refreshRate": 143.970001,
-    "x": -1707, "y": 0, "scale": 1.5, "transform": 0,
-    "disabled": false, "mirrorOf": "none",
-    "availableModes": ["2560x1440@143.97Hz", "2560x1440@59.95Hz", "2560x1440@59.95Hz"],
-    "futureField": {"ignored": true}
+    "name": "DP-EXAMPLE",
+    "description": "Example Display DEMO-001",
+    "make": "Example",
+    "model": "Panel",
+    "serial": "DEMO-001",
+    "width": 2560,
+    "height": 1440,
+    "refreshRate": 143.970001,
+    "x": -1707,
+    "y": 0,
+    "scale": 1.5,
+    "transform": 0,
+    "disabled": false,
+    "mirrorOf": "none",
+    "availableModes": [
+      "2560x1440@143.97Hz",
+      "2560x1440@59.95Hz",
+      "2560x1440@59.95Hz"
+    ],
+    "futureField": {
+      "ignored": true
+    },
+    "vrr": false,
+    "currentFormat": "XRGB8888",
+    "colorManagementPreset": "srgb",
+    "sdrBrightness": 1,
+    "sdrSaturation": 1,
+    "sdrMinLuminance": 0.2,
+    "sdrMaxLuminance": 80,
+    "hardwareDetails": {
+      "vrrCapable": false,
+      "hdr": false,
+      "bt2020": false
+    }
   },
   {
-    "name": "HDMI-EXAMPLE", "description": "Example Secondary",
-    "make": "Example", "model": "Portrait", "serial": "",
-    "width": 1920, "height": 1080, "refreshRate": 60.0,
-    "x": 0, "y": 0, "scale": 1.0, "transform": 1,
-    "disabled": true, "mirrorOf": "none",
-    "availableModes": ["1920x1080@60.00Hz"]
+    "name": "HDMI-EXAMPLE",
+    "description": "Example Secondary",
+    "make": "Example",
+    "model": "Portrait",
+    "serial": "",
+    "width": 1920,
+    "height": 1080,
+    "refreshRate": 60.0,
+    "x": 0,
+    "y": 0,
+    "scale": 1.0,
+    "transform": 1,
+    "disabled": true,
+    "mirrorOf": "none",
+    "availableModes": [
+      "1920x1080@60.00Hz"
+    ],
+    "vrr": false,
+    "currentFormat": "XRGB8888",
+    "colorManagementPreset": "srgb",
+    "sdrBrightness": 1,
+    "sdrSaturation": 1,
+    "sdrMinLuminance": 0.2,
+    "sdrMaxLuminance": 80,
+    "hardwareDetails": {
+      "vrrCapable": false,
+      "hdr": false,
+      "bt2020": false
+    }
   }
 ]
