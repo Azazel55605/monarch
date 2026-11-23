@@ -68,6 +68,11 @@ with path.open("r+") as stream:
             json.dump(data, stream)
             stream.truncate()
             raise SystemExit(1)
+        if data.get("vrr_rule_cache"):
+            # Native 0.57.2 refreshes VRR using the old active rule before
+            # adopting soft/hard changes; a VRR-only rule compares equal.
+            for m in data["monitors"]:
+                m["vrr"] = bool(m.get("cached_vrr", int(m.get("vrr", False))))
         for output in updates:
             for m in data["monitors"]:
                 if m["name"] == output.name:
@@ -76,6 +81,22 @@ with path.open("r+") as stream:
                         if output.mode != "preferred"
                         else Mode.parse(m["availableModes"][0])
                     )
+                    if data.get("vrr_rule_cache"):
+                        changed = any(
+                            (
+                                m["width"] != mode.width,
+                                m["height"] != mode.height,
+                                abs(m["refreshRate"] - float(mode.refresh_hz)) > 0.02,
+                                m["x"] != output.x,
+                                m["y"] != output.y,
+                                m["scale"] != output.scale,
+                                m["transform"] != output.transform,
+                                m["disabled"] == output.enabled,
+                                (m.get("mirrorOf") or "none") != (output.mirror or "none"),
+                            )
+                        )
+                        if changed:
+                            m["cached_vrr"] = output.vrr
                     m.update(
                         width=mode.width,
                         height=mode.height,
@@ -86,7 +107,9 @@ with path.open("r+") as stream:
                         transform=output.transform,
                         disabled=not output.enabled,
                         mirrorOf=output.mirror or "none",
-                        vrr=m.get("vrr") if data.get("ignore_vrr") else bool(output.vrr),
+                        vrr=m.get("vrr")
+                        if data.get("ignore_vrr") or data.get("vrr_rule_cache")
+                        else bool(output.vrr),
                     )
     stream.seek(0)
     json.dump(data, stream)

@@ -8,6 +8,9 @@ from monarch.errors import MonarchError
 
 class Writer(Hyprctl):
     full_reset: bool = False
+    # 0.57.2 ignores VRR in monitor-rule comparison. The guard must adopt the
+    # new policy via an observed soft-property refresh before triggering VRR.
+    vrr_refresh_required: bool = True
 
     async def observe(self) -> tuple[Monitor, ...]:
         return parse_monitors(await self.read("monitors", "all"))

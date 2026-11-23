@@ -5,6 +5,7 @@ import os
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -33,6 +34,7 @@ class Transaction:
         self.record: dict[str, Any] | None = None
         self.pending = False
         self.authorize: Callable[[], None] | None = None
+        self._vrr_policies: dict[str, int] = {}
 
     def save(self, status: str, reason: str = "") -> None:
         assert self.record is not None
@@ -119,33 +121,68 @@ class Transaction:
         atomic_write(self.paths.state / f"backup-{self.record['id']}.lua", disk_bytes, create=True)
         self.save("armed")
 
+    async def reload(self) -> None:
+        self._vrr_policies.clear()
+        await self.backend.reload()
+
     async def set_layout(self, layout: Layout) -> None:
         for output in ordered(layout):
+            live = await self.backend.observe()
+            require_basic(live)
+            layout.validate(live)
+            monitor = next(m for m in live if m.name == output.name)
+            if (
+                getattr(self.backend, "vrr_refresh_required", False)
+                and output.enabled
+                and not output.mirror
+                and monitor.advanced.vrr_capable is True
+                and self._vrr_policies.get(output.name) != output.vrr
+            ):
+                # A VRR-only change is ignored by 0.57.2's rule comparison.
+                # First observe a soft-property change so its active rule adopts
+                # the policy; the final write triggers VRR using that active rule.
+                # Position is owned/journaled, unlike global options or work areas.
+                x = output.x + 1 if output.x < 2**31 - 1 else output.x - 1
+                await self.set_one(layout, replace(output, x=x), verify_vrr=False)
+            await self.set_one(layout, output)
+            self._vrr_policies[output.name] = output.vrr
+
+    async def set_one(self, layout: Layout, output: Output, *, verify_vrr: bool = True) -> None:
+        self.check_session()
+        if self.authorize is not None and self.record and self.record["status"] != "recovering":
+            self.authorize()
+        assert self.record is not None
+        self.managed.check(self.record["disk_digest"])
+        live_before = await self.backend.observe()
+        require_basic(live_before)
+        layout.validate(live_before)
+        await self.backend.set_output(output)
+        deadline = time.monotonic() + 2
+        while True:
             self.check_session()
-            if self.authorize is not None and self.record and self.record["status"] != "recovering":
-                self.authorize()
-            assert self.record is not None
-            self.managed.check(self.record["disk_digest"])
-            live_before = await self.backend.observe()
-            require_basic(live_before)
-            layout.validate(live_before)
-            await self.backend.set_output(output)
-            # A successful IPC reply is not proof that a destination became
-            # usable. Observe it before proceeding to any source disable.
-            deadline = time.monotonic() + 2
-            while True:
-                self.check_session()
-                live = await self.backend.observe()
-                require_basic(live)
-                layout.validate(live)
-                selected = tuple(m for m in live if m.name == output.name)
-                if Layout((output,)).matches(selected):
-                    break
-                if time.monotonic() >= deadline:
-                    raise MonarchError(
-                        "A monitor update was not observed; stopping before further writes."
-                    )
-                await asyncio.sleep(0.1)
+            live = await self.backend.observe()
+            require_basic(live)
+            layout.validate(live)
+            selected = tuple(m for m in live if m.name == output.name)
+            expected = output
+            if not verify_vrr:
+                # Only the intermediate soft refresh may defer VRR verification.
+                # Its exact geometry and identity must already be observed.
+                expected = replace(output, vrr=int(selected[0].advanced.vrr_active is True))
+            if Layout((expected,)).matches(selected):
+                break
+            if time.monotonic() >= deadline:
+                detail = ""
+                if verify_vrr and selected[0].advanced.vrr_active is not bool(output.vrr):
+                    requested = "On" if output.vrr else "Off"
+                    observed = "On" if selected[0].advanced.vrr_active else "Off"
+                    detail = f" (VRR requested {requested}, observed {observed})"
+                raise MonarchError(
+                    "A monitor update was not observed"
+                    + detail
+                    + "; stopping before further writes."
+                )
+            await asyncio.sleep(0.1)
 
     async def settle(self, layout: Layout, *, settling_seconds: float = 2) -> None:
         deadline = time.monotonic() + settling_seconds
@@ -171,7 +208,7 @@ class Transaction:
         self.save("applying")
         # Reload only the verified owned or explicitly reviewed registered root.
         # Registration approval covers executing that user Lua again.
-        await self.backend.reload()
+        await self.reload()
         baseline = Layout.parse(self.record["baseline"])
         await self.set_layout(baseline)
         await self.settle(baseline)
@@ -207,7 +244,7 @@ class Transaction:
             disk_digest = self.record["candidate_digest"]
             self.check_session()
             self.managed.check(disk_digest)
-            await self.backend.reload()
+            await self.reload()
             await self.settle(desired)
             self.managed.check(disk_digest)
         self.check_session()
@@ -249,7 +286,7 @@ class Transaction:
                     expected=digest(current),
                 )
             require_basic(await self.backend.observe())
-            await self.backend.reload()
+            await self.reload()
             baseline = Layout.parse(self.record["baseline"])
             live = await self.backend.observe()
             try:

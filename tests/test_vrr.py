@@ -192,6 +192,7 @@ def test_acknowledged_but_ineffective_vrr_change_is_rejected_and_rolled_back(gua
         with pytest.raises(MonarchError, match="Preview did not start"):
             await coordinator.preview(store, on_layout(desired), seconds=10)
         assert coordinator.paths.status()["status"] == "reverted"
+        assert "VRR requested On, observed Off" in coordinator.paths.status()["failure"]
         assert baseline.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
 
     asyncio.run(run())
@@ -201,8 +202,9 @@ def test_partial_apply_failure_after_vrr_enable_restores_off_policy(guard_setup)
     coordinator, store, baseline, desired, state = guard_setup
     capable(state)
     raw = json.loads(state.read_text())
-    # Initial reload + two baseline outputs + enabling VRR; then fail the next write.
-    raw["fail_at"] = 5
+    # Reload + baseline refresh/final/disabled + desired refresh/final; fail next write.
+    raw["fail_at"] = 7
+    raw["vrr_rule_cache"] = True
     state.write_text(json.dumps(raw))
 
     async def run():
@@ -244,5 +246,60 @@ def test_topology_rebase_retains_confirmed_runtime_only_vrr_by_identity(setup_tr
         assert second.paths.status()["status"] == "reverted"
         assert backend.live[0].advanced.vrr_active is True
         assert store.read()[0] == baseline
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("persist", [False, True])
+def test_native_vrr_only_cache_quirk_keep_revert_and_persistence(guard_setup, persist):
+    coordinator, store, baseline, desired, state = guard_setup
+    capable(state)
+    raw = json.loads(state.read_text())
+    raw["vrr_rule_cache"] = True
+    state.write_text(json.dumps(raw))
+    on = on_layout(baseline)  # VRR is the ONLY requested change.
+
+    async def run():
+        preview = await coordinator.preview(store, on, seconds=15)
+        assert on.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
+        assert (await preview.decide(keep=True, persist=persist))["state"] == "kept"
+        off = baseline
+        preview = await coordinator.preview(store, off, seconds=15)
+        assert off.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
+        assert (await preview.decide(keep=False))["state"] == "reverted"
+        assert on.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
+        assert store.read()[0] == (on if persist else baseline)
+
+    asyncio.run(run())
+
+
+def test_external_edit_between_vrr_refresh_stages_prevents_final_write(setup_transaction):
+    tx, backend, store, baseline, desired = setup_transaction
+    backend.vrr_refresh_required = True
+    backend.live = tuple(
+        replace(m, advanced=replace(m.advanced, vrr_capable=True)) for m in backend.live
+    )
+    original = read_private(store.monitors)
+    modified = original + b"-- external change\n"
+    original_set = backend.set_output
+    calls_at_edit = []
+
+    async def change_after_refresh(output):
+        await original_set(output)
+        if output.name == baseline.outputs[0].name and output.x == baseline.outputs[0].x + 1:
+            store.monitors.write_bytes(modified)
+            calls_at_edit.append(len(backend.calls))
+
+    backend.set_output = change_after_refresh
+
+    async def run():
+        await tx.prepare(store, baseline, store.root, 10)
+        with pytest.raises(MonarchError):
+            await tx.apply()
+        assert calls_at_edit and len(backend.calls) == calls_at_edit[0]
+        await tx.rollback("external_edit")
+        assert tx.paths.status()["status"] == "recovery_required"
+        assert read_private(store.monitors) == modified
+        assert len(backend.calls) == calls_at_edit[0]
 
     asyncio.run(run())

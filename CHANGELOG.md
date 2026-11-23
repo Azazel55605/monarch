@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0rc4 — VRR-only cached-rule refresh
+
+- Fix VRR-only updates on the supported Hyprland 0.57.2 baseline, whose active
+  monitor-rule comparison omits VRR. The guard uses an observed one-pixel soft
+  refresh and restores the requested position before accepting the final state.
+- Keep session/config/topology checks between refresh stages and mandatory final
+  VRR readback. No global VRR or hard mode changes are used for the workaround.
+- Add upstream-shaped cached-rule regression coverage for Keep/Revert/persistence,
+  partial failure, and config conflicts between stages. Report requested/observed
+  VRR state when an acknowledged update remains ineffective.
+- External global VRR changes still require restoring/reviewing the owned baseline;
+  physical validation of this compatibility fix remains pending.
+
 ## 0.1.0rc3 — explicit VRR Off/On
 
 - Per-monitor VRR Off/On in the editor, guarded previews, profiles, rollback and

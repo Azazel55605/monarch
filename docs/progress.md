@@ -59,12 +59,20 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Test `0.1.0rc3` VRR Off/On using the [VRR guide](vrr-guide.md), starting from the
+Test `0.1.0rc4` VRR Off/On using the [VRR guide](vrr-guide.md), starting from the
 reviewed inactive legacy baseline. Record physical Preview → Revert, Keep,
 Save on login and ordinary layout edits with VRR On. Target-display, dock/resume
 and fresh-login acceptance still precede stable promotion. Conditional VRR,
 HDR/depth/color/ICC and unknown-display automatic configuration remain future work.
 No stable tag/publication or AUR submission has been performed.
+
+## VRR-only physical feedback fix
+
+The rc3 physical toggle failed and rolled back; the journal reported an unobserved
+update. Global VRR re-enabling then produced an external/owned-baseline mismatch.
+`0.1.0rc4` models the supported compositor's cached-rule behavior and adds a guarded
+soft refresh. See the [compatibility fix](vrr-guide.md#hyprland-0572-vrr-only-update-fix-rc4).
+Final software/package checks are pending; physical acceptance remains open.
 
 ## VRR follow-up
 

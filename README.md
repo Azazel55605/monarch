@@ -3,7 +3,7 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 7 testing candidate — `0.1.0rc3`.**
+**Status: Phase 7 testing candidate — `0.1.0rc4`.**
 Per-monitor VRR Off/On, named profiles, guarded quick switching and opt-in automatic
 previews are available. See the [VRR testing guide](docs/vrr-guide.md).
 Physical dock/resume acceptance remains open in the tracker. There is no stable

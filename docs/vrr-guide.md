@@ -1,4 +1,4 @@
-# VRR Off/On in 0.1.0rc3
+# VRR Off/On in 0.1.0rc4
 
 This testing candidate supports per-monitor VRR **Off (0)** and **On (1)** through
 Monarch's existing independent guard. Conditional fullscreen policies (2/3), HDR,
@@ -8,7 +8,7 @@ virtual outputs or an EDID capability flag.
 
 ## Enable it
 
-1. Quit the old Monarch instance and install the rc3 candidate. Run `monarch gui`.
+1. Quit the old Monarch instance and install the rc4 candidate. Run `monarch gui`.
 2. Select the intended display and set **VRR → On** in its normal properties panel.
    On requires an explicit VRR-capable hardware flag and known observed state.
    Other displays retain their individually selected Off/On policies.
@@ -58,6 +58,43 @@ an observed active output as On with `layout capture --vrr-on OUTPUT` or
 `profile capture NAME --vrr-on OUTPUT`; these capture data and do not apply changes.
 Conditional policies must not be represented as always-On without that explicit
 choice. For another target policy, edit a draft or strict schema-2 JSON.
+
+## Hyprland 0.57.2 VRR-only update fix (rc4)
+
+A physical test of rc3 failed with an acknowledged but unobserved VRR-only change;
+the journal confirmed rollback completed. Its synthetic transport had applied VRR
+immediately and did not reproduce the compositor's cached active-rule behavior.
+In tagged 0.57.2 the rule comparison omits VRR, and the property refresher evaluates
+VRR before the newly scheduled monitor rule is adopted. A VRR-only edit can therefore
+leave the previous active policy in effect despite an `ok` response.
+
+The guard now refreshes an enabled, independent VRR-capable output when adopting
+its policy after a reload or changing that policy. It sends a temporary position
+one logical pixel away, verifies the intermediate geometry/identity with supported
+SDR state, then sends the final rule to restore the exact requested position and
+trigger VRR with the adopted policy. Final VRR verification remains mandatory.
+The tiny intermediate movement may be visible. It does not alter global options,
+work-area reservations, saved files, resolution, scale or transform to force a
+refresh. Every step repeats session, ownership, topology and automation checks;
+the existing journal covers rollback if a stage fails. Mirrored/disabled outputs
+do not use this independent-output refresh path.
+
+Changing global `misc.vrr` externally to On after a failed Off-baseline preview
+creates a separate owned-baseline mismatch. Restore the reviewed global Off
+setting and reload/Refresh before retrying through rc4, then use per-output On in
+Monarch. Re-review any changed registered dependencies. A completed `reverted`
+journal is not unfinished recovery; do not delete journals or edit the generated
+module to bypass the mismatch.
+
+References: [0.57.2 rule comparison](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/shared/monitor/MonitorRule.cpp),
+[0.57.2 property refresh](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/supplementary/propRefresher/PropRefresher.cpp).
+Local rc4 checks pass: the full run passed 265 tests, with the external-edit
+fixture corrected and verified separately. Ruff/format, strict mypy and artifact
+checks pass. The native nested probe observed the intermediate position and exact
+restoration on virtual outputs, with no parent monitor writes. Final hosted/full
+suite and package results are recorded after validation. Physical VRR acceptance
+remains a user test; this regression and virtual geometry check are not hardware
+certification.
 
 ## Recovery and limits
 

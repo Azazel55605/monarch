@@ -19,7 +19,10 @@ read-only; 10-bit/HDR or unknown observations can still block application.
 Older basic-only layouts migrate as VRR Off. Existing externally active or
 conditional VRR cannot be inferred from the active flag: establish the reviewed Off
 baseline once, then enable On through Monarch. Do not edit the generated module by
-hand. Conditional fullscreen policies are not supported. Physical VRR acceptance
+hand. The rc4 compatibility refresh can briefly shift an independent VRR-capable
+output by one logical pixel before restoring its exact position. Both stages stay
+inside guarded preview; final VRR readback is required. Conditional fullscreen
+policies are not supported. Physical VRR acceptance
 on a particular display remains a user test; guarded rollback cannot certify a GPU.
 
 ## Set up, preview, and save
