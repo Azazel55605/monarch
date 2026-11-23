@@ -10,6 +10,7 @@ from typing import Any
 from PySide6.QtCore import QThread, Signal
 
 from monarch.backends.hyprland.commands import Hyprctl
+from monarch.backends.hyprland.drm import LINK_ERROR, disabled_links
 from monarch.backends.hyprland.events import EventWatcher
 from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
@@ -312,6 +313,8 @@ class BackendThread(QThread):
                 reason = "Monitor management is ready."
             except (MonarchError, OSError) as exc:
                 reason = str(exc)
+        if disabled_links(inspection.monitors):
+            reason += "\n" + LINK_ERROR
         self.management_ready = ready
         self.ownership.emit({"ready": ready, "reason": reason, "directory": self.directory})
         self.observed.emit(inspection)

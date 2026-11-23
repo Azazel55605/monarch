@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from monarch.backends.hyprland.commands import Hyprctl
+from monarch.backends.hyprland.drm import read_connector_states
 from monarch.backends.hyprland.session import ConfigLocation, config_location
 from monarch.domain.monitors import Monitor, parse_monitors
 from monarch.errors import MonarchError
@@ -59,6 +60,8 @@ class Inspector:
         provider = raw_provider if raw_provider in ("lua", "hyprlang") else "unknown"
         backend = status.get("backend")
         backend = backend if isinstance(backend, str) else "unknown"
+        if backend == "drm":
+            monitors = read_connector_states(monitors)
         stable = (
             version == "0.57.2"
             and version_data.get("tag") == "v0.57.2"

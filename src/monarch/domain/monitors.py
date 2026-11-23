@@ -49,6 +49,8 @@ class Monitor:
     warnings: tuple[str, ...] = ()
     advanced: AdvancedState = field(default_factory=AdvancedState)
     mirror_known: bool = True
+    dpms_on: bool | None = None
+    connector_enabled: bool | None = None
 
     @property
     def logical_size(self) -> tuple[float, float] | None:
@@ -186,6 +188,7 @@ def parse_monitors(data: object) -> tuple[Monitor, ...]:
                 warnings=tuple(warnings),
                 advanced=AdvancedState.parse(item),
                 mirror_known=mirror_known,
+                dpms_on=item.get("dpmsStatus") if type(item.get("dpmsStatus")) is bool else None,
             )
         )
     return tuple(monitors)

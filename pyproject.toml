@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "monarch-displays"
-version = "0.1.0rc8"
+version = "0.1.0rc9"
 description = "A native Qt monitor editor for Hyprland with guarded previews and Lua integration"
 readme = "README.md"
 requires-python = ">=3.12"

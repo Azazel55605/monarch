@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0rc9
+
+- Check kernel connector state on native DRM sessions. If Hyprland reports an
+  awake display active but the corresponding connector is still disabled, show
+  the discrepancy and decline confirmation of that preview.
+- Add the discrepancy to redacted support reports without exposing connector
+  names. Other backends and ambiguous connector mappings retain IPC checks.
+
 ## 0.1.0rc8
 
 - Newly connected displays appear in the editor even while a layout draft is open.

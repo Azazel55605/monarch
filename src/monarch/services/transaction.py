@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Protocol
 
+from monarch.backends.hyprland.drm import LINK_ERROR, disabled_links
 from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout, Output, ordered
 from monarch.domain.monitors import Monitor
@@ -186,7 +187,9 @@ class Transaction:
                 )
             await asyncio.sleep(0.1)
 
-    async def settle(self, layout: Layout, *, settling_seconds: float = 2) -> None:
+    async def settle(
+        self, layout: Layout, *, settling_seconds: float = 2, verify_links: bool = False
+    ) -> None:
         deadline = time.monotonic() + settling_seconds
         while True:
             self.check_session()
@@ -194,11 +197,17 @@ class Transaction:
             require_basic(live)
             # Topology and identity changes fail immediately, not after settling.
             layout.validate(live)
-            if layout.matches(live):
+            matched = layout.matches(live)
+            blocked_links = disabled_links(live) if verify_links and matched else ()
+            if matched and not blocked_links:
                 await self.backend.check_errors()
                 return
             if time.monotonic() >= deadline:
-                raise MonarchError("Observed monitor state did not match the requested layout.")
+                raise MonarchError(
+                    LINK_ERROR
+                    if blocked_links
+                    else "Observed monitor state did not match the requested layout."
+                )
             await asyncio.sleep(0.1)
 
     async def apply(self) -> None:
@@ -222,7 +231,7 @@ class Transaction:
         self.managed.check(self.record["disk_digest"])
         desired = Layout.parse(self.record["desired"])
         await self.set_layout(desired)
-        await self.settle(desired)
+        await self.settle(desired, verify_links=True)
         self.save("pending")
         self.pending = True
 
@@ -243,6 +252,8 @@ class Transaction:
         require_basic(live)
         if not desired.matches(live):
             raise MonarchError("Monitor topology or layout changed during preview.")
+        if disabled_links(live):
+            raise MonarchError(LINK_ERROR)
         await self.backend.check_errors()
 
     async def keep(self, persist: bool) -> None:
@@ -258,7 +269,7 @@ class Transaction:
             self.check_session()
             self.managed.check(disk_digest)
             await self.reload()
-            await self.settle(desired)
+            await self.settle(desired, verify_links=True)
             self.managed.check(disk_digest)
         self.check_session()
         if time.monotonic() >= self.record["deadline"]:

@@ -5,6 +5,7 @@ import math
 import time
 from typing import Any
 
+from monarch.backends.hyprland.drm import LINK_ERROR, disabled_links
 from monarch.backends.hyprland.inspector import Inspection
 from monarch.domain.advanced import basic_issues
 from monarch.domain.policy import Policy, Selection, choose, topology
@@ -223,6 +224,10 @@ class Automation:
                 "retry": 0.0,
                 "topology": observed_topology,
             }
+        if self.selection.layout.matches(inspection.monitors) and disabled_links(
+            inspection.monitors
+        ):
+            return self.status(LINK_ERROR, now=now), None
         outcome = self.attempt["outcome"]
         if outcome in {"offered", "kept", "declined", "blocked", "satisfied"}:
             return self.status(

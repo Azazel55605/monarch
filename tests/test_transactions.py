@@ -326,3 +326,22 @@ def test_foreign_session_journal_blocks_same_owned_root(setup_transaction):
         assert not backend.calls
 
     asyncio.run(run())
+
+
+def test_guard_refuses_logically_matching_mode_with_disabled_drm_connector(setup_transaction):
+    tx, backend, store, baseline, desired = setup_transaction
+    backend.live = (
+        replace(backend.live[0], dpms_on=True, connector_enabled=False),
+        backend.live[1],
+    )
+
+    async def run():
+        await tx.prepare(store, desired, store.root, 15)
+        with pytest.raises(MonarchError, match="Linux still reports"):
+            await tx.apply()
+        assert not tx.pending
+        await tx.rollback("apply_failed")
+        assert baseline.matches(backend.live)
+        assert tx.paths.status()["status"] == "reverted"
+
+    asyncio.run(run())

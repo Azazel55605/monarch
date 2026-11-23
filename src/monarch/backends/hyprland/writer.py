@@ -1,6 +1,7 @@
 """Typed mutation primitives, used only by the locked recovery guard."""
 
 from monarch.backends.hyprland.commands import Hyprctl
+from monarch.backends.hyprland.drm import read_connector_states
 from monarch.domain.layout import Output, rule
 from monarch.domain.monitors import Monitor, parse_monitors
 from monarch.errors import MonarchError
@@ -8,12 +9,14 @@ from monarch.errors import MonarchError
 
 class Writer(Hyprctl):
     full_reset: bool = False
+    native_drm: bool = False
     # 0.57.2 ignores VRR in monitor-rule comparison. The guard must adopt the
     # new policy via an observed soft-property refresh before triggering VRR.
     vrr_refresh_required: bool = True
 
     async def observe(self) -> tuple[Monitor, ...]:
-        return parse_monitors(await self.read("monitors", "all"))
+        monitors = parse_monitors(await self.read("monitors", "all"))
+        return read_connector_states(monitors) if self.native_drm else monitors
 
     async def set_output(self, output: Output) -> None:
         response = await self._request(("eval", rule(output)))

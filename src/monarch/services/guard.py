@@ -161,6 +161,7 @@ async def run(request_path: Path) -> int:
             raise MonarchError("Mutations require the clean Hyprland 0.57.2 Lua baseline.")
         allow_xdg = inspection.config.source == "compositor XDG reload search"
         writer.full_reset = allow_xdg
+        writer.native_drm = inspection.capabilities.backend == "drm"
         if request["action"] == "recover":
             await transaction.recover()
         else:

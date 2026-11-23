@@ -12,6 +12,7 @@ from typing import Any
 
 from monarch import __version__
 from monarch.backends.hyprland.commands import Hyprctl
+from monarch.backends.hyprland.drm import LINK_ERROR, disabled_links
 from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.backends.hyprland.support import blockers
@@ -129,6 +130,8 @@ async def collect(
             data["checks"] += [
                 {"code": code, "action": action} for code, action in blockers(inspection)
             ]
+            if disabled_links(inspection.monitors):
+                data["checks"].append({"code": "drm_output_disabled", "action": LINK_ERROR})
             data["integration"] = integration(inspection, directory)
             data["advanced"] = [
                 {"output": f"display-{i}", "features": [f.to_dict() for f in features(m.advanced)]}
