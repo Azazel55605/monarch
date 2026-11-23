@@ -288,3 +288,77 @@ def test_generated_desktop_entry_validates_with_spaces_and_percent(tmp_path):
     path.write_bytes(desktop_entry("/tmp/space and % symbols/python", tmp_path / "profile space"))
     result = subprocess.run([validator, str(path)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_new_display_fallback_with_no_catalog_runs_guarded_preview(guard_setup, tmp_path):
+    coordinator, managed, _, _, state = guard_setup
+    raw = json.loads(state.read_text())
+    extra = dict(
+        raw["monitors"][0],
+        name="DP-NEW",
+        serial="NEW",
+        x=5000,
+        availableModes=[
+            "2560x1440@143.97Hz",
+            "3840x2160@60Hz",
+            "3840x2160@120Hz",
+            "1920x1080@240Hz",
+        ],
+    )
+    raw["monitors"].append(extra)
+    state.write_text(json.dumps(raw))
+    profiles = ProfileStore(tmp_path / "empty-profiles")
+    PolicyStore(profiles.directory).write(Policy(enabled=True, new_displays=True))
+    engine = Automation(coordinator, profiles)
+    inspection = Inspection(
+        Capabilities("0.57.2", "lua", "wayland", True, True),
+        ConfigLocation(managed.root, "test", True),
+        parse_monitors(raw["monitors"]),
+        (),
+    )
+    try:
+        assert engine.evaluate(inspection, idle=True, ready=True, now=0, managed=managed)[1] is None
+        _, proposal = engine.evaluate(inspection, idle=True, ready=True, now=2, managed=managed)
+        assert proposal is not None and proposal.profile is None
+        assert proposal.layout.outputs[-1].mode == "3840x2160@120"
+        assert proposal.layout.outputs[-1].x == 853  # right edge of the original panel
+
+        async def run():
+            preview = await coordinator.preview(
+                managed, proposal.layout, automation=engine.authorize(), seconds=15
+            )
+            assert (await preview.decide(keep=False))["state"] == "reverted"
+            assert json.loads(state.read_text())["monitors"][-1]["x"] == 5000
+
+            from monarch.domain.layout import Layout
+
+            snapshot = Layout.capture(inspection.monitors)
+            preview = await coordinator.preview(
+                managed, proposal.layout, topology_snapshot=snapshot, seconds=15
+            )
+            assert (await preview.decide(keep=False))["state"] == "reverted"
+            assert json.loads(state.read_text())["monitors"][-1]["x"] == 5000
+            with pytest.raises(MonarchError, match="Preview did not start"):
+                await coordinator.preview(
+                    managed, proposal.layout, topology_snapshot=proposal.layout
+                )
+
+        asyncio.run(run())
+    finally:
+        engine.close()
+
+
+def test_eligible_profile_wins_over_new_display_fallback(automatic):
+    from monarch.domain.layout import Layout
+
+    engine, inspection, _, managed, _ = automatic
+    extra = replace(inspection.monitors[0], name="DP-NEW", serial="NEW", x=5000)
+    inspection = replace(inspection, monitors=(*inspection.monitors, extra))
+    profile = engine.profiles.save("Dock", Layout.capture(inspection.monitors))
+    engine.store.write(Policy(True, (Rule(profile.id),), new_displays=True))
+    engine.evaluate(inspection, idle=True, ready=True, now=0, managed=managed)
+    # A matching profile produces no offer when already satisfied. The fallback
+    # would have moved the new screen and selected a different candidate.
+    _, proposal = engine.evaluate(inspection, idle=True, ready=True, now=2, managed=managed)
+    assert proposal is None
+    assert engine.selection.profile == profile

@@ -6,12 +6,17 @@ import time
 from typing import Any
 
 from monarch.backends.hyprland.inspector import Inspection
+from monarch.domain.advanced import basic_issues
 from monarch.domain.policy import Policy, Selection, choose, topology
+from monarch.domain.profiles import candidates_for
+from monarch.domain.quick_layout import external, identity, new_display_layout
 from monarch.errors import MonarchError
+from monarch.services.baseline import known_baseline
 from monarch.services.coordinator import Coordinator
 from monarch.services.state import SessionLock, session_token
-from monarch.storage.automation import PolicyStore, control, permit
+from monarch.storage.automation import PolicyStore, control, permit, profile_snapshot
 from monarch.storage.files import digest, read_json, read_private, write_json
+from monarch.storage.managed import Managed
 from monarch.storage.profiles import ProfileStore, decode
 
 
@@ -101,7 +106,13 @@ class Automation:
         return data
 
     def evaluate(
-        self, inspection: Inspection, *, idle: bool, ready: bool, now: float | None = None
+        self,
+        inspection: Inspection,
+        *,
+        idle: bool,
+        ready: bool,
+        now: float | None = None,
+        managed: Managed | None = None,
     ) -> tuple[dict[str, Any], Selection | None]:
         now = time.monotonic() if now is None else now
         policy_content = read_private(self.store.path) if self.store.path.exists() else None
@@ -128,14 +139,39 @@ class Automation:
             self.save_attempt()
         state = control(self.paths)
         self.generation = state["generation"]
-        catalog = (
-            read_private(self.profiles.path)
-            if self.profiles.path.exists()
-            else b'{"schema_version":2,"profiles":[]}'
-        )
+        catalog = profile_snapshot(self.profiles.path)
         profiles = decode(json.loads(catalog))
         self.profiles_digest = digest(catalog)
-        self.selection = choose(policy, profiles, inspection.monitors)
+        baseline = None
+        if ready and managed is not None:
+            baseline, _ = known_baseline(
+                managed, self.paths, self.token, inspection.monitors, allow_topology_rebase=True
+            )
+        self.selection = choose(policy, profiles, inspection.monitors, baseline=baseline)
+        if (
+            policy.new_displays
+            and baseline is not None
+            and self.selection.layout is None
+            and self.selection.reason.startswith("No eligible profile")
+            and not basic_issues(inspection.monitors)
+        ):
+            known = {identity(o) for o in baseline.outputs}
+            added = tuple(
+                m
+                for m in inspection.monitors
+                if external(m.name)
+                and identity(m) not in known
+                and not any(candidates_for(o, (m,)) for p in profiles for o in p.layout.outputs)
+            )
+            if added:
+                try:
+                    layout = new_display_layout(inspection.monitors, baseline, added)
+                    self.selection = Selection(
+                        "Best advertised mode for new external displays.", layout=layout
+                    )
+                except MonarchError as exc:
+                    self.selection = Selection(str(exc))
+
         if state["pinned"]:
             self.stable_key = ""
             return self.status(
@@ -186,7 +222,7 @@ class Automation:
             self.attempt["outcome"] = "satisfied"
             self.save_attempt()
             return self.status(
-                "The selected profile already matches the current layout.", now=now
+                "The selected layout already matches the current displays.", now=now
             ), None
         self.attempt["outcome"] = "offered"
         self.save_attempt()

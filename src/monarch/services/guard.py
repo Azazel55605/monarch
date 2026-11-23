@@ -196,13 +196,15 @@ async def run(request_path: Path) -> int:
             managed = Managed(Path(request["root"]))
             location = config_location(session, resolve_xdg=allow_xdg)
             active = location.path if location.verified else None
+            snapshot = request.get("topology_snapshot")
             async with asyncio.timeout(20):
                 await transaction.prepare(
                     managed,
                     Layout.parse(request["layout"]),
                     active,
                     seconds,
-                    allow_topology_rebase=authorization is not None,
+                    allow_topology_rebase=authorization is not None or snapshot is not None,
+                    topology_snapshot=Layout.parse(snapshot) if snapshot is not None else None,
                 )
             assert transaction.record is not None
             if authorization is not None:

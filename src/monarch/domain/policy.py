@@ -7,6 +7,7 @@ from monarch.domain.advanced import basic_issues
 from monarch.domain.layout import Layout, capture_output
 from monarch.domain.monitors import Monitor
 from monarch.domain.profiles import Profile, candidates_for, resolve
+from monarch.domain.quick_layout import identity
 from monarch.errors import MonarchError
 
 
@@ -49,12 +50,18 @@ class Rule:
 class Policy:
     enabled: bool = False
     rules: tuple[Rule, ...] = ()
+    new_displays: bool = False
 
     @classmethod
     def parse(cls, value: object) -> "Policy":
         if (
             not isinstance(value, dict)
-            or set(value) != {"schema_version", "enabled", "rules"}
+            or set(value)
+            not in (
+                {"schema_version", "enabled", "rules"},
+                {"schema_version", "enabled", "rules", "new_displays"},
+            )
+            or type(value.get("new_displays", False)) is not bool
             or type(value["schema_version"]) is not int
             or value["schema_version"] != 1
             or type(value["enabled"]) is not bool
@@ -65,13 +72,14 @@ class Policy:
         rules = tuple(Rule.parse(row) for row in value["rules"])
         if len({r.profile for r in rules}) != len(rules):
             raise MonarchError("Each profile may have only one automatic matching rule.")
-        return cls(value["enabled"], rules)
+        return cls(value["enabled"], rules, value.get("new_displays", False))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": 1,
             "enabled": self.enabled,
             "rules": [r.to_dict() for r in self.rules],
+            **({"new_displays": True} if self.new_displays else {}),
         }
 
 
@@ -100,7 +108,9 @@ def topology(monitors: tuple[Monitor, ...]) -> tuple[object, ...]:
     )
 
 
-def match(profile: Profile, rule: Rule, monitors: tuple[Monitor, ...]) -> Layout:
+def match(
+    profile: Profile, rule: Rule, monitors: tuple[Monitor, ...], baseline: Layout | None = None
+) -> Layout:
     bindings = {o.name: o.name for o in profile.layout.outputs} if rule.connectors else None
     if rule.mode == "exact":
         return resolve(profile, monitors, bindings)
@@ -117,7 +127,8 @@ def match(profile: Profile, rule: Rule, monitors: tuple[Monitor, ...]) -> Layout
     wanted = resolve(profile, tuple(selected), bindings)
     # Unknown extras retain their CURRENT settings, including enabled state.
     extras = tuple(m for m in monitors if m.name not in {o.name for o in wanted.outputs})
-    current = Layout(tuple(capture_output(m) for m in extras))
+    policies = {identity(o): o.vrr for o in baseline.outputs} if baseline else {}
+    current = Layout(tuple(capture_output(m, policy=policies.get(identity(m), 0)) for m in extras))
     names = {o.name for o in wanted.outputs}
     layout = Layout(wanted.outputs + tuple(o for o in current.outputs if o.name not in names))
     layout.validate(monitors)
@@ -125,7 +136,11 @@ def match(profile: Profile, rule: Rule, monitors: tuple[Monitor, ...]) -> Layout
 
 
 def choose(
-    policy: Policy, profiles: tuple[Profile, ...], monitors: tuple[Monitor, ...]
+    policy: Policy,
+    profiles: tuple[Profile, ...],
+    monitors: tuple[Monitor, ...],
+    *,
+    baseline: Layout | None = None,
 ) -> Selection:
     if not policy.enabled:
         return Selection("Automatic switching is disabled.")
@@ -144,7 +159,7 @@ def choose(
             rejected.append("A rule references a deleted profile.")
             continue
         try:
-            layout = match(profile, rule, monitors)
+            layout = match(profile, rule, monitors, baseline)
         except MonarchError as exc:
             rejected.append(f"{profile.name}: {exc}")
             continue

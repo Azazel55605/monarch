@@ -29,23 +29,26 @@ class AutomationDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Automatic profile switching")
+        self.setWindowTitle("Display automation")
         self.setModal(True)
         self.resize(720, 480)
         layout = QVBoxLayout(self)
         notice = QLabel(
             "Opt in to exclusive basic monitor control. Topology changes may capture the "
             "current basic layout for recovery. Every automatic preview still needs Keep; "
-            "timeout restores it. Unknown extra displays keep their current settings."
+            "timeout restores it. Matching profiles take priority."
         )
         notice.setWordWrap(True)
         layout.addWidget(notice)
         form = QFormLayout()
-        self.enabled = QCheckBox("Enable automatic profile previews")
+        self.enabled = QCheckBox("Enable automatic display previews")
         self.enabled.setChecked(policy.enabled)
+        self.new_displays = QCheckBox("Use the best advertised mode for new external displays")
+        self.new_displays.setChecked(policy.new_displays)
         self.autostart = QCheckBox("Start Monarch in the tray at login")
         self.autostart.setChecked(autostart)
         form.addRow(self.enabled)
+        form.addRow(self.new_displays)
         form.addRow(self.autostart)
         layout.addLayout(form)
         self.table = QTableWidget(len(profiles), 5)
@@ -101,4 +104,7 @@ class AutomationDialog(QDialog):
             for identifier, enabled, mode, priority, ports in self.rows
             if enabled.isChecked()
         )
-        self.saved.emit(Policy(self.enabled.isChecked(), rules), self.autostart.isChecked())
+        self.saved.emit(
+            Policy(self.enabled.isChecked(), rules, self.new_displays.isChecked()),
+            self.autostart.isChecked(),
+        )

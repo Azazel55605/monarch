@@ -59,11 +59,12 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Test `0.1.0rc4` VRR Off/On using the [VRR guide](vrr-guide.md), starting from the
-reviewed inactive legacy baseline. Record physical Preview → Revert, Keep,
-Save on login and ordinary layout edits with VRR On. Target-display, dock/resume
+The user confirmed rc4 fixed the VRR toggle on their panel. Test rc5 sidebar
+scaling, tray shortcuts and new-display previews using the [testing guide](testing-guide.md).
+Record physical docking with eligible profiles and unfamiliar displays, along
+with persistence and ordinary layout edits while VRR is On. Target-display, dock/resume
 and fresh-login acceptance still precede stable promotion. Conditional VRR,
-HDR/depth/color/ICC and unknown-display automatic configuration remain future work.
+HDR/depth/color/ICC remain future work.
 No stable tag/publication or AUR submission has been performed.
 
 ## VRR-only physical feedback fix

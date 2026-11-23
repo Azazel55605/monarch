@@ -1,5 +1,6 @@
 """Native Qt manual monitor editor; mutations go through BackendThread's coordinator."""
 
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QFormLayout,
     QFrame,
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QStyle,
@@ -35,6 +38,7 @@ from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
+from monarch.domain.quick_layout import arrange_external, external
 from monarch.errors import MonarchError
 from monarch.resources import APP_ID, icon_path
 from monarch.ui.automation import AutomationDialog
@@ -43,8 +47,9 @@ from monarch.ui.diagnostics import AdvancedDialog, DiagnosticsDialog
 from monarch.ui.dialogs import ConfirmationDialog, IntegrationDialog
 from monarch.ui.help import HelpDialog
 from monarch.ui.identify import Identification
-from monarch.ui.model import EditorModel
+from monarch.ui.model import EditorModel, draft_layout
 from monarch.ui.profiles import MappingDialog, ProfileBar
+from monarch.ui.quick import ExternalDialog, icon_button, quick_dialog
 from monarch.ui.theme import ThemeController
 from monarch.ui.worker import BackendThread
 
@@ -81,6 +86,7 @@ class MainWindow(QMainWindow):
         self._discard_next = False
         self._closing = False
         self._quit_requested = False
+        self.quick_panel: QDialog | None = None
         self.confirmation: ConfirmationDialog | None = None
         self.integration: IntegrationDialog | None = None
         self.identification = Identification()
@@ -185,7 +191,9 @@ class MainWindow(QMainWindow):
         properties = QWidget()
         form = QFormLayout(properties)
         form.setContentsMargins(20, 0, 0, 0)
-        form.setSpacing(14)
+        form.setSpacing(10)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         self.selected_title = QLabel("Select a display")
         f = self.selected_title.font()
         f.setBold(True)
@@ -258,7 +266,14 @@ class MainWindow(QMainWindow):
         self.advanced_button.clicked.connect(self.show_advanced)
         form.addRow(self.advanced_button)
         self.properties = properties
-        self.splitter.addWidget(properties)
+        for combo in (self.resolution, self.refresh_rate, self.rotation, self.vrr, self.mirror):
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        inspector = QScrollArea()
+        inspector.setWidgetResizable(True)
+        inspector.setFrameShape(QFrame.Shape.NoFrame)
+        inspector.setWidget(properties)
+        self.splitter.addWidget(inspector)
+        self.splitter.setChildrenCollapsible(False)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setSizes([760, 330])
         outer.addWidget(self.splitter, 1)
@@ -288,7 +303,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self.discard)
         self.apply = QPushButton("Preview changes")
         self.apply.setObjectName("previewChanges")
-        self.apply.clicked.connect(self.start_preview)
+        self.apply.clicked.connect(lambda: self.start_preview())
         row.addWidget(self.apply)
         outer.addLayout(row)
         self.canvas.editing.connect(
@@ -653,6 +668,8 @@ class MainWindow(QMainWindow):
         if self.tray_menu is None:
             return
         self.tray_menu.clear()
+        self.tray_menu.addAction("Quick controls…", self.show_quick_panel)
+        self.tray_menu.addAction("External display layout…", self.show_external_panel)
         self.tray_menu.addAction("Open Monarch", self.show_editor)
         for profile in profiles:
             self.tray_menu.addAction(profile.name, partial(self.tray_switch, profile.id))
@@ -668,11 +685,112 @@ class MainWindow(QMainWindow):
         self.tray_menu.addAction("Quit Monarch", self.quit_requested)
 
     def tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason in (
-            QSystemTrayIcon.ActivationReason.Trigger,
-            QSystemTrayIcon.ActivationReason.DoubleClick,
-        ):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self.show_quick_panel()
+        elif reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            if self.quick_panel:
+                self.quick_panel.close()
             self.show_editor()
+
+    def present_quick_panel(self, dialog: QDialog) -> None:
+        if self.quick_panel:
+            self.quick_panel.close()
+        self.quick_panel = dialog
+        dialog.finished.connect(lambda: setattr(self, "quick_panel", None))
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def show_quick_panel(self) -> None:
+        if self.model.busy:
+            self.show_editor()
+            return
+        panel = quick_dialog("Monarch quick controls", self)
+        form = QFormLayout(panel)
+        picker = QComboBox()
+        for profile in self.profile_bar.profiles:
+            picker.addItem(profile.name, profile.id)
+        switch = QPushButton("Preview profile")
+        switch.setEnabled(bool(picker.count()) and self.ready and not self._profile_loading)
+        form.addRow("Profile", picker)
+        form.addRow(switch)
+
+        def preview_profile() -> None:
+            panel.accept()
+            self.tray_switch(str(picker.currentData()))
+
+        switch.clicked.connect(preview_profile)
+        row = QHBoxLayout()
+        sp = QStyle.StandardPixmap
+
+        def open_panel(callback: Callable[[], None]) -> None:
+            panel.accept()
+            callback()
+
+        for label, name, fallback, callback in (
+            ("External displays", "video-display", sp.SP_ComputerIcon, self.show_external_panel),
+            ("Open editor", "document-edit", sp.SP_FileDialogDetailedView, self.show_editor),
+        ):
+            button = icon_button(panel, label, name, fallback)
+            button.clicked.connect(partial(open_panel, callback))
+            row.addWidget(button)
+        form.addRow(row)
+        self.present_quick_panel(panel)
+
+    def show_external_panel(self) -> None:
+        inspection = self.model.inspection
+        if not self.ready or self.model.busy or self._profile_loading or inspection is None:
+            self.show_editor()
+            self.profile_message("Monitor management must be ready to preview an external layout.")
+            return
+        layout = draft_layout(inspection.monitors)
+        anchors = [o.name for o in layout.outputs if o.enabled and not o.mirror]
+        targets = [
+            o.name for o in layout.outputs if external(o.name) and any(a != o.name for a in anchors)
+        ]
+        if not targets:
+            self.show_editor()
+            self.profile_message(
+                "Connect an external display and a separate independent reference."
+            )
+            return
+        preferred = next((name for name in anchors if not external(name)), "")
+        panel = ExternalDialog(targets, anchors, preferred, self)
+        for action, button in panel.layout_buttons.items():
+            button.clicked.connect(partial(self.preview_external, panel, action))
+        self.present_quick_panel(panel)
+
+    def preview_external(self, panel: ExternalDialog, action: str) -> None:
+        target, anchor = panel.target.currentText(), panel.anchor.currentText()
+        panel.accept()
+        self.show_editor()
+        inspection = self.model.inspection
+        if not inspection or self.model.busy or not self.ready:
+            return
+        current = draft_layout(inspection.monitors)
+        try:
+            layout = arrange_external(current, inspection.monitors, target, anchor, action)
+        except MonarchError as exc:
+            self.profile_message(str(exc))
+            return
+        if (
+            self.model.dirty
+            and QMessageBox.question(
+                self,
+                "Replace edited layout?",
+                "Discard your draft and preview this layout?",
+                QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            != QMessageBox.StandardButton.Discard
+        ):
+            return
+        self.persist.setChecked(False)
+        self.model.observed = current
+        self.model.draft = layout
+        self.model.stale = False
+        self.render_state()
+        self.start_preview(topology_snapshot=current)
 
     def quit_requested(self) -> None:
         self._quit_requested = True
@@ -812,7 +930,7 @@ class MainWindow(QMainWindow):
         if self.model.draft:
             self.identification.show(tuple(o.name for o in self.model.draft.outputs))
 
-    def start_preview(self) -> None:
+    def start_preview(self, *, topology_snapshot: Layout | None = None) -> None:
         if self.model.error() or not self.ready or not self.model.draft:
             return
         self.model.busy = True
@@ -820,7 +938,7 @@ class MainWindow(QMainWindow):
         self.render_state()
         self.preview_requested.emit(self.model.draft)
         if self.backend:
-            self.backend.submit("preview", self.model.draft)
+            self.backend.submit("preview", self.model.draft, topology_snapshot)
 
     def preview_pending(self, deadline: float) -> None:
         self.confirmation = ConfirmationDialog(deadline, self._persist, self)

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0rc5
+
+- Display controls grow with the sidebar and scroll when window height is limited.
+- Eligible automatic profiles take priority. An optional fallback extends unfamiliar
+  external displays to the right at the largest advertised resolution and fastest
+  refresh rate at that resolution.
+- A tray click opens quick controls for profiles and external displays. The external
+  layout bar previews four directions of extension or duplication.
+- Automatic previews and tray actions use the existing Keep/Revert guard.
+
 ## 0.1.0rc4 — VRR-only cached-rule refresh
 
 - Fix VRR-only updates on the supported Hyprland 0.57.2 baseline, whose active

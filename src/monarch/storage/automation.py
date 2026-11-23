@@ -85,6 +85,11 @@ def pin(paths: Paths, pinned: bool = True) -> str:
     return generation
 
 
+def profile_snapshot(path: Path) -> bytes:
+    no_symlinks(path)
+    return read_private(path) if path.exists() else b'{"schema_version":2,"profiles":[]}'
+
+
 def permit(
     paths: Paths,
     generation: str,
@@ -96,7 +101,7 @@ def permit(
     state = control(paths)
     if state["pinned"] or state["generation"] != generation:
         raise MonarchError("Automatic preview superseded by manual control.")
-    if digest(read_private(profiles_path)) != profiles_digest:
+    if digest(profile_snapshot(profiles_path)) != profiles_digest:
         raise MonarchError("Profile catalog changed during automatic preview.")
     data = read_private(policy_path)
     if digest(data) != policy_digest or not Policy.parse(json.loads(data)).enabled:

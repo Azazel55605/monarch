@@ -63,6 +63,7 @@ class Transaction:
         seconds: float,
         *,
         allow_topology_rebase: bool = False,
+        topology_snapshot: Layout | None = None,
     ) -> None:
         previous = self.paths.status()
         if previous and previous.get("status") not in TERMINAL:
@@ -76,6 +77,10 @@ class Transaction:
             raise MonarchError("Active config is not the verified Monarch-owned root.")
         monitors = await self.backend.observe()
         require_basic(monitors)
+        if topology_snapshot is not None and not topology_snapshot.matches(monitors):
+            raise MonarchError(
+                "The observed layout changed before preview. Open the shortcut again."
+            )
         desired.validate(monitors)
         baseline, disk_bytes = known_baseline(
             managed,

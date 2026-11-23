@@ -1,4 +1,4 @@
-# Testing the 0.1.0rc4 candidate
+# Testing the 0.1.0rc5 candidate
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
@@ -15,8 +15,8 @@ tray instance. Reopen after installation to load the new version. From a checkou
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
 uv build --out-dir dist/candidate
-python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc4.tar.gz
-sudo pacman -U dist/arch/monarch-displays-0.1.0rc4-1-any.pkg.tar.zst
+python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc5.tar.gz
+sudo pacman -U dist/arch/monarch-displays-0.1.0rc5-1-any.pkg.tar.zst
 ```
 
 Review `packaging/arch/PKGBUILD.in` and the generated `dist/arch/PKGBUILD` first.
@@ -52,7 +52,7 @@ this checkout's built wheel:
 
 ```sh
 python -m venv /path/to/monarch-test
-/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc4-py3-none-any.whl[gui]'
+/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc5-py3-none-any.whl[gui]'
 /path/to/monarch-test/bin/monarch gui --tray
 ```
 
@@ -127,3 +127,19 @@ For a virtual environment, use its Python's pip to uninstall monarch-displays, o
 remove that dedicated environment after the same startup/recovery steps. Those
 operations do not remove external user config data. No uninstaller runs a raw reload
 or automatically changes a monitor layout.
+
+
+To test the new tray controls, click the tray icon once for the profile picker.
+Open **External displays**, choose the external and reference displays, then
+choose an extend direction or **Duplicate**. The editor opens for Keep/Revert.
+You can also open both panels from the tray context menu. A double-click opens
+the full editor. Directions that overlap another independent display are refused.
+
+In **Automation**, enable automatic display previews and mark the profiles that
+should load for each setup. Optionally enable **Use the best advertised mode for
+new external displays**. Eligible profile matches take priority. When there is
+no eligible match, the fallback handles newly seen external displays absent
+from the owned baseline and unrecognized by the profile catalog. It extends them
+to the right and ranks modes by pixel area, then refresh rate. A saved display
+with no eligible profile and a tie between eligible profiles retain their
+current settings. Keep applies the automatic suggestion for this session.

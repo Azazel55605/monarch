@@ -743,6 +743,8 @@ def test_tray_close_keeps_worker_and_dirty_draft_until_explicit_quit(
             worker.submit("refresh")
         assert json.loads(state.read_text()).get("mutations", 0) == 0
         widget.tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+        assert widget.quick_panel.isVisible()
+        widget.tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
         assert widget.isVisible() and widget.model.draft == draft
         monkeypatch.setattr(
             QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Cancel
@@ -935,3 +937,28 @@ def test_vrr_editor_keep_persist_and_observed_profile_capture(qtbot, guard_setup
         worker.shutdown()
         worker.wait(10000)
         widget.close()
+
+
+def test_external_display_bar_builds_guarded_preview(qtbot, inspection):
+    from monarch.ui.quick import ExternalDialog
+
+    widget = MainWindow()
+    qtbot.addWidget(widget)
+    widget.receive(inspection)
+    widget.receive_ownership({"ready": True, "reason": "Synthetic"})
+    widget.show_external_panel()
+    panel = widget.quick_panel
+    assert isinstance(panel, ExternalDialog)
+    target = inspection.monitors[1].name
+    anchor = inspection.monitors[0].name
+    panel.target.setCurrentText(target)
+    assert panel.anchor.currentText() == anchor
+    assert not panel.layout_buttons["right"].icon().isNull()
+    with qtbot.waitSignal(widget.preview_requested) as signal:
+        panel.layout_buttons["right"].click()
+    layout = signal.args[0]
+    current = widget.model.observed
+    assert layout.outputs[0] == current.outputs[0]
+    assert layout.outputs[1].enabled and not layout.outputs[1].mirror
+    assert layout.outputs[1].x == current.outputs[0].x + current.outputs[0].size[0]
+    assert widget.model.busy

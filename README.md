@@ -3,7 +3,7 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 7 testing candidate — `0.1.0rc4`.**
+**Status: Phase 7 testing candidate — `0.1.0rc5`.**
 Per-monitor VRR Off/On, named profiles, guarded quick switching and opt-in automatic
 previews are available. See the [VRR testing guide](docs/vrr-guide.md).
 Physical dock/resume acceptance remains open in the tracker. There is no stable
@@ -44,7 +44,9 @@ style. Compatible qt6ct/Kvantum/Breeze plugins are detected when available.
 See the [profiles and appearance guide](docs/phase-4-guide.md).
 
 Use **Automation…** to select eligible profiles and explicitly enable matching.
-Automatic previews still require Keep/Revert. Login startup is a separate opt-in.
+Automatic previews still require Keep/Revert. An optional fallback selects the
+largest advertised mode and fastest refresh rate at that resolution for unfamiliar
+external displays. Click the tray icon for profiles or the Extend/Duplicate bar. Login startup is a separate opt-in.
 See the [automation guide](docs/phase-5-guide.md).
 
 Use **Advanced settings…** for observed VRR/format/color/HDR state and explicit

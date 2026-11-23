@@ -125,6 +125,7 @@ class Coordinator:
         *,
         seconds: float = 15,
         automation: dict[str, str] | None = None,
+        topology_snapshot: Layout | None = None,
     ) -> Preview:
         Layout.parse(layout.to_dict())
         if not 1 <= seconds <= 60:
@@ -147,6 +148,7 @@ class Coordinator:
                 "layout": layout.to_dict(),
                 "seconds": seconds,
                 "automation": automation,
+                "topology_snapshot": topology_snapshot.to_dict() if topology_snapshot else None,
             }
         )
         try:

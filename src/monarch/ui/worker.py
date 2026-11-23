@@ -322,6 +322,9 @@ class BackendThread(QThread):
                 Managed(self.directory),
                 layout,
                 automation=self.auto_authorization if self.automatic_preview else None,
+                topology_snapshot=args[1]
+                if len(args) > 1 and isinstance(args[1], Layout)
+                else None,
             )
             self.pending.emit(self.handle.deadline)
             result = await self.handle.wait()
@@ -494,7 +497,10 @@ class BackendThread(QThread):
                         self.latest_inspection = inspection
                         self.observed.emit(inspection)
                     status, offer = self.automation.evaluate(
-                        inspection, idle=self.ui_idle, ready=self.management_ready
+                        inspection,
+                        idle=self.ui_idle,
+                        ready=self.management_ready,
+                        managed=Managed(self.directory) if self.directory else None,
                     )
                     self.automation_state.emit(status)
                     if offer is not None and offer.layout is not None:
