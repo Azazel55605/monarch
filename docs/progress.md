@@ -70,7 +70,9 @@ See the [Phase 4 report](phase-4-report.md) and [guide](phase-4-guide.md).
 Native qt6ct/style discovery, three generic profiles, import/export, explicit
 mapping, GUI Keep/Revert/persistence, tray action confirmation, client-close
 recovery and PTY CLI switching passed in a disposable compositor. Parent monitor
-settings were not changed.
+settings were not changed. All 166 tests passed on local Python 3.12–3.14,
+including installed GUI wheels on 3.12/3.14. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45169702883)
+also passed all three versions on `6bafcae`.
 
 ## Phase 3 checks
 

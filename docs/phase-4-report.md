@@ -33,6 +33,7 @@ Explicit session theme/style variables remain effective.
 | Python 3.14.10, installed GUI wheel | 166 tests passed; installed wheel |
 | Ruff / formatting / strict mypy | Passed; 37 typed source files |
 | Wheel / source distribution | Built successfully |
+| Hosted Ubuntu CI, Python 3.12 / 3.13 / 3.14 | All jobs passed on `6bafcae` |
 
 Offscreen Qt tests are distinct from native
 Wayland acceptance. Coverage includes catalog CRUD, no-clobber exports, import
@@ -40,6 +41,10 @@ conflicts, private permissions, locks/external-edit conflicts, migration backups
 malformed data, control characters, unique/absent/duplicate serials, changed modes,
 missing/extra outputs, explicit mappings, real profile GUI confirmation and client
 close, GUI/CLI races, native-style fallback/selection, and PTY profile Keep/persistence.
+
+[Passing hosted run](https://github.com/Azazel55605/monarch/actions/runs/45169702883)
+includes all 166 tests per Python version, lint/formatting, strict types and builds.
+Later commit status is tracked independently in GitHub Actions.
 
 ## Native acceptance
 
