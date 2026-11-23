@@ -67,6 +67,14 @@ and fresh-login acceptance still precede stable promotion. Conditional VRR,
 HDR/depth/color/ICC remain future work.
 No stable tag/publication or AUR submission has been performed.
 
+## TV hotplug follow-up
+
+Physical feedback exposed a paused watcher and a replacement HDMI display that
+inherited an unsupported timing. rc7 scopes implicit pauses to the current
+display set and uses advertised timings for previews and recovery on a reused
+connector. A read-only check against the reconnected TV selected an advertised
+mode for both preview and recovery. Physical picture confirmation remains open.
+
 ## VRR-only physical feedback fix
 
 The rc3 physical toggle failed and rolled back; the journal reported an unobserved

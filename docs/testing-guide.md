@@ -1,4 +1,4 @@
-# Testing the 0.1.0rc6 candidate
+# Testing the 0.1.0rc7 candidate
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
@@ -15,8 +15,8 @@ tray instance. Reopen after installation to load the new version. From a checkou
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
 uv build --out-dir dist/candidate
-python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc6.tar.gz
-sudo pacman -U dist/arch/monarch-displays-0.1.0rc6-1-any.pkg.tar.zst
+python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc7.tar.gz
+sudo pacman -U dist/arch/monarch-displays-0.1.0rc7-1-any.pkg.tar.zst
 ```
 
 Review `packaging/arch/PKGBUILD.in` and the generated `dist/arch/PKGBUILD` first.
@@ -52,7 +52,7 @@ this checkout's built wheel:
 
 ```sh
 python -m venv /path/to/monarch-test
-/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc6-py3-none-any.whl[gui]'
+/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc7-py3-none-any.whl[gui]'
 /path/to/monarch-test/bin/monarch gui --tray
 ```
 
@@ -170,3 +170,14 @@ hl.window_rule({
     center = true,
 })
 ```
+
+
+If you are testing a TV on a port previously used by another display, select the
+correct TV input. Confirm the TV appears in `hyprctl -j monitors all`. If the
+compositor has no TV entry, Monarch has no modes to select. Use **Resume automatic
+switching** once to clear any pause left by rc6. Subsequent manual edits pause only
+the current setup. If Hyprland is using the previous display’s unsupported refresh
+rate on that port, Revert restores an advertised timing for the replacement.
+The preview applies the detected layout live and Keep confirms
+it for this session. The saved startup layout is updated only when you explicitly
+save a layout on login from the editor.

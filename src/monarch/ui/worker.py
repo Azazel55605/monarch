@@ -18,6 +18,7 @@ from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import MappingRequired, resolve
+from monarch.domain.quick_layout import connection_key
 from monarch.errors import MonarchError
 from monarch.services.automation import Automation
 from monarch.services.baseline import known_baseline
@@ -166,13 +167,17 @@ class BackendThread(QThread):
                         and not self.automatic_preview
                         and self.coordinator
                     ):
-                        if not control(self.coordinator.paths)["pinned"]:
-                            pin(self.coordinator.paths)
+                        if self.latest_inspection and not control(self.coordinator.paths)["pinned"]:
+                            pin(
+                                self.coordinator.paths,
+                                connections=connection_key(self.latest_inspection.monitors),
+                            )
                 elif operation in {
                     "automation-settings",
                     "automation-save",
                     "automation-resume",
                     "automation-pin",
+                    "automation-edit-pin",
                 }:
                     try:
                         self._automation_action(operation, *args)
@@ -226,10 +231,10 @@ class BackendThread(QThread):
                 except (MonarchError, OSError) as exc:
                     self.failed.emit(str(exc))
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, inspection: Inspection | None = None) -> None:
         if self.inspector is None or self.handle is not None or self.previewing:
             return
-        inspection = await self.inspector.inspect()
+        inspection = inspection or await self.inspector.inspect()
         self.latest_inspection = inspection
         if self.directory is None and inspection.config.path:
             candidate = inspection.config.path.parent / "monarch"
@@ -399,11 +404,11 @@ class BackendThread(QThread):
             raise MonarchError("Wait for the active preview before using profiles.")
         store = self.profile_store
         key = str(payload.get("key", ""))
-        if operation in {"load", "switch"} and self.coordinator:
-            pin(self.coordinator.paths)
         if operation in {"load", "switch", "capture"}:
             assert self.inspector is not None
             inspection = await self.inspector.inspect()
+            if operation in {"load", "switch"} and self.coordinator:
+                pin(self.coordinator.paths, connections=connection_key(inspection.monitors))
             if operation == "capture":
                 store.save(
                     str(payload["name"]),
@@ -475,7 +480,14 @@ class BackendThread(QThread):
             self.automation_saved.emit()
         else:
             assert self.coordinator is not None
-            pin(self.coordinator.paths, operation == "automation-pin")
+            if operation == "automation-edit-pin":
+                if self.latest_inspection and not control(self.coordinator.paths)["pinned"]:
+                    pin(
+                        self.coordinator.paths,
+                        connections=connection_key(self.latest_inspection.monitors),
+                    )
+            else:
+                pin(self.coordinator.paths, operation == "automation-pin")
 
     async def _automatic_loop(self) -> None:
         assert self.automation is not None and self.inspector is not None
@@ -494,8 +506,8 @@ class BackendThread(QThread):
                         else self.latest_inspection
                     )
                     if inspection != self.latest_inspection:
-                        self.latest_inspection = inspection
-                        self.observed.emit(inspection)
+                        # Polling is also the recovery path for missed hotplug events.
+                        await self._refresh(inspection)
                     status, offer = self.automation.evaluate(
                         inspection,
                         idle=self.ui_idle,

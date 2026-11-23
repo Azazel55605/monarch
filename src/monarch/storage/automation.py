@@ -12,7 +12,7 @@ from typing import Any
 
 from monarch.domain.policy import Policy, Rule
 from monarch.errors import MonarchError
-from monarch.services.state import Paths
+from monarch.services.state import Paths, SessionLock
 from monarch.storage.files import (
     atomic_write,
     digest,
@@ -69,7 +69,8 @@ def control(paths: Paths) -> dict[str, Any]:
     data = read_json(path)
     if (
         not isinstance(data, dict)
-        or set(data) != {"generation", "pinned"}
+        or set(data) not in ({"generation", "pinned"}, {"generation", "pinned", "connections"})
+        or ("connections" in data and not isinstance(data["connections"], str))
         or not isinstance(data["generation"], str)
         or type(data["pinned"]) is not bool
     ):
@@ -77,12 +78,37 @@ def control(paths: Paths) -> dict[str, Any]:
     return data
 
 
-def pin(paths: Paths, pinned: bool = True) -> str:
-    generation = uuid.uuid4().hex
-    write_json(
-        paths.runtime / "automation-control.json", {"generation": generation, "pinned": pinned}
-    )
-    return generation
+def pin(paths: Paths, pinned: bool = True, *, connections: str = "") -> str:
+    path = paths.runtime / "automation-control.json"
+    lock = SessionLock(paths)
+    lock.path = paths.runtime / "automation-control.lock"
+    with lock:
+        previous = control(paths)
+        # Edits must never shorten a deliberately requested session-wide pause.
+        if connections and previous["pinned"] and not previous.get("connections"):
+            return str(previous["generation"])
+        generation = uuid.uuid4().hex
+        data = {"generation": generation, "pinned": pinned}
+        if pinned and connections:
+            data["connections"] = connections
+        write_json(path, data)
+        return generation
+
+
+def resume_on_connection_change(paths: Paths, connections: str) -> dict[str, Any]:
+    state = control(paths)
+    if not state["pinned"] or state.get("connections") in (None, "", connections):
+        return state
+    path = paths.runtime / "automation-control.json"
+    lock = SessionLock(paths)
+    lock.path = paths.runtime / "automation-control.lock"
+    with lock:
+        # Recheck after taking the lock so a concurrent explicit pause wins.
+        state = control(paths)
+        if state["pinned"] and state.get("connections") not in (None, "", connections):
+            state = {"generation": uuid.uuid4().hex, "pinned": False}
+            write_json(path, state)
+    return state
 
 
 def profile_snapshot(path: Path) -> bytes:

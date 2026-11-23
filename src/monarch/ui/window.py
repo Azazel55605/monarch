@@ -39,7 +39,7 @@ from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
-from monarch.domain.quick_layout import arrange_external, external
+from monarch.domain.quick_layout import arrange_external, connection_key, external
 from monarch.errors import MonarchError
 from monarch.resources import APP_ID, icon_path
 from monarch.ui.automation import AutomationDialog
@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         self.ownership_reason = "Connecting to Hyprland…"
         self.loading = False
         self._discard_next = False
+        self._reverted_draft: Layout | None = None
         self._closing = False
         self._quit_requested = False
         self.quick_panel: QDialog | None = None
@@ -309,7 +310,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self.apply)
         outer.addLayout(row)
         self.canvas.editing.connect(
-            lambda: self.backend.submit("automation-pin") if self.backend else None
+            lambda: self.backend.submit("automation-edit-pin") if self.backend else None
         )
         self.canvas.selected.connect(self.select_display)
         self.canvas.moved.connect(self.position_changed, Qt.ConnectionType.QueuedConnection)
@@ -350,6 +351,14 @@ class MainWindow(QMainWindow):
         self.render_state()
 
     def receive(self, inspection: Inspection) -> None:
+        if self._reverted_draft is not None:
+            if self.model.draft != self._reverted_draft:
+                self._reverted_draft = None
+            elif connection_key(inspection.monitors) != connection_key(
+                self._reverted_draft.outputs
+            ):
+                self._discard_next = True
+                self._reverted_draft = None
         self.model.receive(inspection, discard=self._discard_next)
         self._discard_next = False
         caps = inspection.capabilities
@@ -966,6 +975,11 @@ class MainWindow(QMainWindow):
         self.model.busy = False
         if result.get("automatic"):
             self._discard_next = True
+        self._reverted_draft = (
+            self.model.draft
+            if result["state"] == "reverted" and not result.get("automatic")
+            else None
+        )
         if result["state"] == "kept":
             self._discard_next = True
             self.ownership_reason = (

@@ -84,7 +84,7 @@ class AutomationDialog(QDialog):
             "Higher priority wins, then exact matching, then more required outputs. "
             "Ties, absent/ambiguous identities and no match make no changes. "
             "Saved ports explicitly uses fixed cabling for otherwise ambiguous identities. "
-            "Manual changes pin the session until Resume automatic switching."
+            "Manual edits pause switching until the connected displays change."
         )
         hint.setWordWrap(True)
         layout.addWidget(hint)

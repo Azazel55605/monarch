@@ -1,6 +1,9 @@
 """Build guarded layout candidates for external display shortcuts."""
 
+from collections.abc import Iterable
 from dataclasses import replace
+from decimal import Decimal
+from hashlib import sha256
 
 from monarch.domain.layout import Layout, Output, capture_output
 from monarch.domain.monitors import Monitor
@@ -15,6 +18,10 @@ def identity(output: Output | Monitor) -> tuple[str, str, str, str]:
     return output.name, output.make, output.model, output.serial
 
 
+def connection_key(outputs: Iterable[Output | Monitor]) -> str:
+    return sha256(repr(sorted(identity(output) for output in outputs)).encode()).hexdigest()
+
+
 def best_mode(output: Output, monitor: Monitor) -> Output:
     if not monitor.modes:
         raise MonarchError("The external display has no advertised modes.")
@@ -25,11 +32,53 @@ def best_mode(output: Output, monitor: Monitor) -> Output:
     return replace(output, mode=f"{mode.width}x{mode.height}@{mode.refresh_hz}", scale=scale)
 
 
-def new_display_layout(
-    monitors: tuple[Monitor, ...], baseline: Layout, added: tuple[Monitor, ...]
-) -> Layout:
+def hotplug_baseline(monitors: tuple[Monitor, ...], baseline: Layout, disk: Layout) -> Layout:
+    """Capture current geometry, substituting a safe timing for a reused port."""
     policies = {identity(o): o.vrr for o in baseline.outputs}
-    current = {m.name: capture_output(m, policy=policies.get(identity(m), 0)) for m in monitors}
+    saved = {o.name: identity(o) for o in disk.outputs}
+    outputs = []
+    for monitor in monitors:
+        policy = policies.get(identity(monitor), 0)
+        same_size = [
+            m for m in monitor.modes if (m.width, m.height) == (monitor.width, monitor.height)
+        ]
+        if (
+            monitor.name in saved
+            and saved[monitor.name] != identity(monitor)
+            and external(monitor.name)
+            and monitor.disabled is False
+            and monitor.advanced.vrr_active is False
+            and monitor.refresh_hz is not None
+            and monitor.modes
+            and not any(abs(m.refresh_hz - monitor.refresh_hz) < Decimal(".1") for m in same_size)
+        ):
+            # Preferred advertised timing comes first. Prefer keeping the current
+            # dimensions if the replacement has a mode for them.
+            mode = (same_size or list(monitor.modes))[0]
+            scale = monitor.scale
+            if scale and any(
+                abs(n / scale - round(n / scale)) > 0.001 for n in (mode.width, mode.height)
+            ):
+                scale = 1
+            monitor = replace(
+                monitor,
+                width=mode.width,
+                height=mode.height,
+                refresh_hz=mode.refresh_hz,
+                scale=scale,
+            )
+        outputs.append(capture_output(monitor, policy=policy))
+    return Layout.parse(Layout(tuple(outputs)).to_dict())
+
+
+def new_display_layout(
+    monitors: tuple[Monitor, ...],
+    baseline: Layout,
+    added: tuple[Monitor, ...],
+    *,
+    disk: Layout | None = None,
+) -> Layout:
+    current = {o.name: o for o in hotplug_baseline(monitors, baseline, disk or baseline).outputs}
     names = {m.name for m in added}
     existing = [o for o in current.values() if o.name not in names and o.enabled and not o.mirror]
     if not existing:

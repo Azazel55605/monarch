@@ -362,3 +362,61 @@ def test_eligible_profile_wins_over_new_display_fallback(automatic):
     _, proposal = engine.evaluate(inspection, idle=True, ready=True, now=2, managed=managed)
     assert proposal is None
     assert engine.selection.profile == profile
+
+
+def test_tv_on_reused_hdmi_resumes_manual_pause_and_skips_old_mode_reload(guard_setup, tmp_path):
+    from monarch.domain.quick_layout import connection_key
+
+    coordinator, managed, baseline, _, state = guard_setup
+    raw = json.loads(state.read_text())
+    raw["monitors"][1].update(
+        model="TV",
+        serial="new-device",
+        width=1920,
+        height=1080,
+        refreshRate=180.0,
+        disabled=False,
+        availableModes=["1920x1080@60Hz", "3840x2160@60Hz"],
+        transform=0,
+    )
+    raw["reject_reload"] = True
+    state.write_text(json.dumps(raw))
+    profiles = ProfileStore(tmp_path / "tv-profiles")
+    PolicyStore(profiles.directory).write(Policy(enabled=True, new_displays=True))
+    engine = Automation(coordinator, profiles)
+    inspection = Inspection(
+        Capabilities("0.57.2", "lua", "wayland", True, True),
+        ConfigLocation(managed.root, "test", True),
+        parse_monitors(raw["monitors"]),
+        (),
+    )
+    options = dict(idle=True, ready=True, managed=managed)
+    try:
+        # An explicit pause survives docking and later edits.
+        pin(engine.paths)
+        pin(engine.paths, connections=connection_key(baseline.outputs))
+        assert engine.evaluate(inspection, now=0, **options)[1] is None
+        assert control(engine.paths)["pinned"]
+        pin(engine.paths, False)
+        pin(engine.paths, connections=connection_key(baseline.outputs))
+        assert engine.evaluate(inspection, now=1, **options)[1] is None
+        assert not control(engine.paths)["pinned"]
+        _, proposal = engine.evaluate(inspection, now=3, **options)
+        assert proposal is not None and proposal.layout.outputs[1].mode == "3840x2160@60"
+        assert proposal.layout.outputs[1].enabled
+
+        async def run():
+            preview = await coordinator.preview(
+                managed, proposal.layout, automation=engine.authorize(), seconds=15
+            )
+            assert proposal.layout.matches(
+                parse_monitors(json.loads(state.read_text())["monitors"])
+            )
+            assert (await preview.decide(keep=False))["state"] == "reverted"
+            assert managed.read()[0] == baseline
+            tv = json.loads(state.read_text())["monitors"][1]
+            assert not tv["disabled"] and tv["width"] == 1920 and tv["refreshRate"] == 60.0
+
+        asyncio.run(run())
+    finally:
+        engine.close()

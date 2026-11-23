@@ -32,6 +32,8 @@ with path.open("r+") as stream:
         result = "injected error" if data.get("errors") else ""
     else:
         if command == "reload":
+            if data.get("reject_reload"):
+                raise SystemExit(1)
             layout, _ = Managed(Path(data["root"])).read()
             updates = layout.outputs
         elif command == "eval":

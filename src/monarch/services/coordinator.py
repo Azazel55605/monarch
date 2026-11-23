@@ -11,6 +11,7 @@ from typing import Any
 
 from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
+from monarch.domain.quick_layout import connection_key
 from monarch.errors import MonarchError
 from monarch.services.state import TERMINAL, Paths
 from monarch.storage.files import write_json
@@ -133,7 +134,7 @@ class Coordinator:
         if automation is None:
             from monarch.storage.automation import pin
 
-            pin(self.paths)
+            pin(self.paths, connections=connection_key(layout.outputs))
             # Revocation is visible to the active automatic guard. Wait only for
             # automatic recovery, never steal a manual transaction's lock.
             for _ in range(100):

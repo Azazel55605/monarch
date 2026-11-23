@@ -45,8 +45,9 @@ Missing displays and ambiguous identities need explicit resolution.
 
 Automation is disabled by default. Automation… selects eligible profiles and
 priority/exact/subset matching. Every automatic preview still needs Keep; automatic
-changes never persist the startup file. Manual editing/switching pins the session.
-Use Resume automatic switching to release that override. Saved ports is an explicit
+changes apply to the live session. Manual edits pause switching until the connected
+displays change. An explicit tray pause lasts until Resume automatic switching.
+After upgrading, use Resume once if there is a pause from an older build. Saved ports is an explicit
 fixed-cabling option for otherwise ambiguous displays.
 
 Start at login is a separate opt-in XDG entry. A session autostart host must run it;

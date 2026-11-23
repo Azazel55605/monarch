@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout, Output, ordered
 from monarch.domain.monitors import Monitor
+from monarch.domain.quick_layout import hotplug_baseline, identity
 from monarch.errors import MonarchError
 from monarch.services.baseline import known_baseline
 from monarch.services.state import TERMINAL, Paths
@@ -35,6 +36,7 @@ class Transaction:
         self.pending = False
         self.authorize: Callable[[], None] | None = None
         self._vrr_policies: dict[str, int] = {}
+        self._prepared_monitors: tuple[Monitor, ...] | None = None
 
     def save(self, status: str, reason: str = "") -> None:
         assert self.record is not None
@@ -91,22 +93,17 @@ class Transaction:
         )
         saved_set = {(o.name, o.make, o.model, o.serial) for o in baseline.outputs}
         connected_set = {(m.name, m.make, m.model, m.serial) for m in monitors}
-        if allow_topology_rebase and saved_set != connected_set:
-            # Explicit automation ownership permits only topology-driven basic
-            # snapshots, never adoption of unexplained drift on the same set.
-            baseline = Layout.capture(
-                monitors,
-                vrr_policies={
-                    o.name: o.vrr
-                    for o in baseline.outputs
-                    if (o.name, o.make, o.model, o.serial) in connected_set
-                },
-            )
+        rebased = allow_topology_rebase and saved_set != connected_set
+        if rebased:
+            # Use the live topology, retaining VRR policies for identified
+            # outputs. A stale timing on a reused port is not a recovery mode.
+            baseline = hotplug_baseline(monitors, baseline, parse_content(disk_bytes))
         baseline.validate(monitors)
-        if not baseline.matches(monitors):
+        if not rebased and not baseline.matches(monitors):
             raise MonarchError(
                 "Runtime differs from the owned baseline; external overrides are unknown."
             )
+        self._prepared_monitors = monitors
         await self.backend.check_errors()
         self.record = {
             "schema_version": 1,
@@ -211,18 +208,29 @@ class Transaction:
         self.check_session()
         self.managed.check(self.record["disk_digest"])
         self.save("applying")
-        # Reload only the verified owned or explicitly reviewed registered root.
-        # Registration approval covers executing that user Lua again.
-        await self.reload()
         baseline = Layout.parse(self.record["baseline"])
-        await self.set_layout(baseline)
-        await self.settle(baseline)
+        live = await self.backend.observe()
+        require_basic(live)
+        if not baseline.matches(live) and live != self._prepared_monitors:
+            raise MonarchError("The captured layout changed before the preview started.")
+        # Reloading a saved rule for a reused connector can modeset the new
+        # display with the old display's timing before the preview even starts.
+        if not self.saved_connector_reused(live):
+            await self.reload()
+            await self.set_layout(baseline)
+            await self.settle(baseline)
         self.managed.check(self.record["disk_digest"])
         desired = Layout.parse(self.record["desired"])
         await self.set_layout(desired)
         await self.settle(desired)
         self.save("pending")
         self.pending = True
+
+    def saved_connector_reused(self, monitors: tuple[Monitor, ...]) -> bool:
+        assert self.record is not None
+        disk = parse_content(self.record["disk_content"].encode())
+        saved = {o.name: identity(o) for o in disk.outputs}
+        return any(m.name in saved and saved[m.name] != identity(m) for m in monitors)
 
     async def check_pending(self) -> None:
         if self.authorize is not None:
@@ -290,10 +298,12 @@ class Transaction:
                     self.record["disk_content"].encode(),
                     expected=digest(current),
                 )
-            require_basic(await self.backend.observe())
-            await self.reload()
-            baseline = Layout.parse(self.record["baseline"])
             live = await self.backend.observe()
+            require_basic(live)
+            if not self.saved_connector_reused(live):
+                await self.reload()
+                live = await self.backend.observe()
+            baseline = Layout.parse(self.record["baseline"])
             try:
                 baseline.validate(live)
             except MonarchError:

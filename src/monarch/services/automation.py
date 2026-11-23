@@ -9,14 +9,20 @@ from monarch.backends.hyprland.inspector import Inspection
 from monarch.domain.advanced import basic_issues
 from monarch.domain.policy import Policy, Selection, choose, topology
 from monarch.domain.profiles import candidates_for
-from monarch.domain.quick_layout import external, identity, new_display_layout
+from monarch.domain.quick_layout import connection_key, external, identity, new_display_layout
 from monarch.errors import MonarchError
 from monarch.services.baseline import known_baseline
 from monarch.services.coordinator import Coordinator
 from monarch.services.state import SessionLock, session_token
-from monarch.storage.automation import PolicyStore, control, permit, profile_snapshot
+from monarch.storage.automation import (
+    PolicyStore,
+    control,
+    permit,
+    profile_snapshot,
+    resume_on_connection_change,
+)
 from monarch.storage.files import digest, read_json, read_private, write_json
-from monarch.storage.managed import Managed
+from monarch.storage.managed import Managed, parse_content
 from monarch.storage.profiles import ProfileStore, decode
 
 
@@ -138,15 +144,19 @@ class Automation:
             self.stable_key = ""
             self.save_attempt()
         state = control(self.paths)
+        if ready and idle and inspection.monitors and state.get("connections"):
+            state = resume_on_connection_change(self.paths, connection_key(inspection.monitors))
         self.generation = state["generation"]
         catalog = profile_snapshot(self.profiles.path)
         profiles = decode(json.loads(catalog))
         self.profiles_digest = digest(catalog)
         baseline = None
+        disk = None
         if ready and managed is not None:
-            baseline, _ = known_baseline(
+            baseline, disk_content = known_baseline(
                 managed, self.paths, self.token, inspection.monitors, allow_topology_rebase=True
             )
+            disk = parse_content(disk_content)
         self.selection = choose(policy, profiles, inspection.monitors, baseline=baseline)
         if (
             policy.new_displays
@@ -165,7 +175,7 @@ class Automation:
             )
             if added:
                 try:
-                    layout = new_display_layout(inspection.monitors, baseline, added)
+                    layout = new_display_layout(inspection.monitors, baseline, added, disk=disk)
                     self.selection = Selection(
                         "Best advertised mode for new external displays.", layout=layout
                     )
@@ -175,7 +185,9 @@ class Automation:
         if state["pinned"]:
             self.stable_key = ""
             return self.status(
-                "Manual override is pinned for this session. Resume to allow automatic switching.",
+                "Manual edits paused switching until the connected displays change."
+                if state.get("connections")
+                else "Automatic switching is paused for this session. Use Resume to continue.",
                 now=now,
             ), None
         if not ready or not idle:

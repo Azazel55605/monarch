@@ -56,12 +56,16 @@ sessions retain the existing fail-closed recovery rules.
 
 ## Manual control, storms and failures
 
-Manual editing, loading/switching a profile, or starting a manual preview pins the
-session. Other Monarch windows share that override. **Resume automatic switching**
-in the editor/tray clears it explicitly. A manual client revokes an automatic
-preview and waits briefly for its recovery; it never steals a transaction lock.
-If recovery cannot finish, resolve the journal before retrying a manual change.
-Pins last for this compositor session, across Monarch restarts, until Resume.
+Manual editing, loading or switching a profile, and starting a manual preview pause
+automation for the connected displays. Monarch resumes automatically when a
+different set of displays is detected and the editor is idle. **Resume automatic
+switching** clears the pause early. An explicit tray or CLI pause lasts for the
+session until Resume. Pauses from older versions also require Resume once because
+they did not record their scope.
+
+Other Monarch windows share this override. A manual client revokes an automatic
+preview and waits briefly for recovery. If recovery needs attention, resolve the
+journal before retrying the change.
 
 There is at most one automatic owner per session. Other windows remain usable for
 manual changes and show that another window owns automation. The event socket

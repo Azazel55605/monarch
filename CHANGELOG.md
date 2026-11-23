@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0rc7
+
+- Manual layout edits pause automation for the current monitor setup. Connecting
+  a different set of displays clears that pause. Explicit tray and CLI pauses
+  still require Resume.
+- A preview for a replacement display on a reused connector skips the reload
+  that would replay the old display's saved timing. Its recovery snapshot comes
+  from the currently connected display. If Hyprland already reports the old
+  unadvertised timing, Revert uses an advertised timing on the replacement.
+- The polling watcher rechecks write readiness when a hotplug event was missed.
+
 ## 0.1.0rc6
 
 - Quick controls and the external display bar open as compact floating panels on
