@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from monarch.resources import APP_ID, icon_path
 from monarch.ui.theme import ThemeController, discover_system_plugins
@@ -26,7 +26,7 @@ def launch(
     *,
     profile: str = "",
     persist: bool = False,
-    tray: bool = False,
+    tray: bool = True,
     background: bool = False,
     profile_directory: Path | None = None,
 ) -> int:
@@ -36,6 +36,7 @@ def launch(
     existing = QApplication.instance()
     app = existing if isinstance(existing, QApplication) else QApplication(sys.argv[:1])
     configure_app(app)
+    app.setQuitOnLastWindowClosed(not (tray and QSystemTrayIcon.isSystemTrayAvailable()))
     worker = BackendThread(managed=directory.expanduser().absolute() if directory else None)
     if profile_directory is not None:
         from monarch.storage.profiles import ProfileStore

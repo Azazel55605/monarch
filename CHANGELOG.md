@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.0rc2 — tray and canvas feedback
+
+- Close to an available tray by default, retaining drafts and the monitor watcher;
+  explicit Quit exits, and `--no-tray` or no tray host retains exit-on-close.
+  Active previews stay reachable; background operation enables no new automation.
+- Keep display outlines visible with flat system palettes, including theme colors
+  that make the normal border indistinguishable from the monitor fill.
+- Snap during dragging within a consistent 12 screen-pixel tolerance at any zoom;
+  ignore distant displays and hold Alt for free placement.
+- Existing VRR setup/apply restrictions and native timeout gates remain open.
+  Automatically configuring unknown external displays is future work.
+
 ## 0.1.0rc1 — testing candidate
 
 This candidate packages the implemented manual editor, profiles and opt-in automatic

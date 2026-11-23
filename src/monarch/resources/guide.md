@@ -41,7 +41,11 @@ fixed-cabling option for otherwise ambiguous displays.
 
 Start at login is a separate opt-in XDG entry. A session autostart host must run it;
 plain Hyprland alone does not guarantee that. `monarch automation run` starts a
-minimized editor/tray without enabling the policy. Closing the editor exits the tray.
+minimized editor/tray without enabling the policy. Closing the editor hides it to
+an available tray and preserves drafts and the running monitor watcher. Open it
+again from the tray; use Quit Monarch to exit. During a preview, finish Keep/Revert
+before hiding. Without a tray host, closing exits normally. `monarch gui --no-tray`
+also exits on close. Tray/background operation does not enable automatic switching.
 
 ## Problems and recovery
 
@@ -58,7 +62,7 @@ as a shortcut. The independent guard survives client death; guard/compositor/GPU
 failure cannot guarantee an automatic display restoration.
 
 Before uninstalling: close previews, resolve current-session recovery, disable
-login startup with `monarch automation autostart disable`, and close Monarch.
+login startup with `monarch automation autostart disable`, and choose Quit Monarch from the tray.
 Package removal preserves user profiles, config integration, backups and journals.
 The generated Lua include can remain without Python installed. If removing that
 integration, review/remove its marked root block before deleting the referenced

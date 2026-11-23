@@ -141,7 +141,7 @@ def size(output: Output) -> tuple[float, float]:
     return (height, width) if output.transform % 2 else (width, height)
 
 
-def snap(layout: Layout, name: str, x: int, y: int, threshold: int = 24) -> tuple[int, int]:
+def snap(layout: Layout, name: str, x: int, y: int, threshold: float = 24) -> tuple[int, int]:
     moving = next(o for o in layout.outputs if o.name == name)
     width, height = size(moving)
     x_targets = []
@@ -150,8 +150,12 @@ def snap(layout: Layout, name: str, x: int, y: int, threshold: int = 24) -> tupl
         if other.name == name or not other.enabled or other.mirror:
             continue
         w, h = size(other)
-        x_targets.extend([other.x, other.x + w, other.x - width, other.x + w - width])
-        y_targets.extend([other.y, other.y + h, other.y - height, other.y + h - height])
+        # Only attach to displays in reach on the perpendicular axis. Otherwise
+        # a far-away display can pull a dragged monitor into an unrelated column.
+        if y <= other.y + h + threshold and y + height >= other.y - threshold:
+            x_targets.extend([other.x, other.x + w, other.x - width, other.x + w - width])
+        if x <= other.x + w + threshold and x + width >= other.x - threshold:
+            y_targets.extend([other.y, other.y + h, other.y - height, other.y + h - height])
     if x_targets:
         nearest = min(x_targets, key=lambda value: abs(value - x))
         if abs(nearest - x) <= threshold:

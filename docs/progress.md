@@ -59,12 +59,21 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Test the `0.1.0rc1` candidate and collect user feedback using the
+Test the `0.1.0rc2` candidate and collect user feedback using the
 [testing guide](testing-guide.md). Record actual installed-session/physical basic
 mode, dock/resume and fresh-login acceptance before stable release promotion.
 Advanced writes remain deferred pending per-option hardware recovery evidence;
 additional advanced work follows the feedback cycle. No stable tag/publication or
 AUR submission has been performed.
+
+## Tray and canvas feedback follow-up
+
+`0.1.0rc2` implements close-to-tray lifetime, explicit Quit/no-host fallback,
+contrasting monitor outlines, and live zoom-aware edge snapping. See the
+[feedback changes and validation](rc2-feedback.md). Automatic integration of newly
+attached unknown external displays remains a future request; the existing watcher
+continues discovery while hidden. VRR preservation remains the next write-path
+blocker to investigate. Physical acceptance gates remain open.
 
 ## User feedback
 

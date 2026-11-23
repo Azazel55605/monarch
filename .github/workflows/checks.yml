@@ -40,7 +40,7 @@ jobs:
         with:
           version: '0.13.9'
       - run: uv build --out-dir dist/candidate
-      - run: python3 tools/build_arch_package.py --prepare-only --sdist dist/candidate/monarch_displays-0.1.0rc1.tar.gz --output dist/arch-source
+      - run: python3 tools/build_arch_package.py --prepare-only --sdist dist/candidate/monarch_displays-*.tar.gz --output dist/arch-source
       - run: docker build --tag monarch-arch-builder packaging/arch
       - run: mkdir -p dist/arch
       - name: Build, check, install and remove in clean Arch

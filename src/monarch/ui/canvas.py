@@ -1,7 +1,7 @@
 """Proportional, keyboard-accessible display layout canvas."""
 
 from PySide6.QtCore import QRectF, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QPainter, QPen
+from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsObject,
@@ -16,6 +16,31 @@ from monarch.domain.layout import Layout, Output
 from monarch.ui.model import size, snap
 
 FACTOR = 0.16
+SNAP_PIXELS = 12
+
+
+def contrast(first: QColor, second: QColor) -> float:
+    def luminance(color: QColor) -> float:
+        channels = (color.redF(), color.greenF(), color.blueF())
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return sum(c * weight for c, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True))
+
+    a, b = luminance(first), luminance(second)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+def display_colors(palette: QPalette, *, selected: bool, enabled: bool) -> tuple[QColor, QColor]:
+    fill = palette.base().color() if enabled else palette.alternateBase().color()
+    if fill.alpha() == 0:
+        fill = palette.window().color()
+    fill.setAlpha(255)
+    border = palette.highlight().color() if selected else palette.mid().color()
+    if border.alpha() < 255 or contrast(fill, border) < 3:
+        border = palette.text().color()
+        border.setAlpha(255)
+        if contrast(fill, border) < 3:
+            border = max((QColor("black"), QColor("white")), key=lambda c: contrast(fill, c))
+    return fill, border
 
 
 class DisplayItem(QGraphicsObject):
@@ -42,7 +67,10 @@ class DisplayItem(QGraphicsObject):
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
             editable and output.enabled and not output.mirror,
         )
-        self.setToolTip(f"{output.name}: {output.mode} · scale {output.scale:g}")
+        self.setToolTip(
+            f"{output.name}: {output.mode} · scale {output.scale:g}\n"
+            "Drag to snap to nearby displays; hold Alt to move freely."
+        )
         self.setZValue(2 if not output.mirror else 3)
 
     def boundingRect(self) -> QRectF:
@@ -53,11 +81,12 @@ class DisplayItem(QGraphicsObject):
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         palette = widget.palette() if widget else self.scene().views()[0].palette()
-        fill = palette.base().color()
-        if not self.output.enabled:
-            fill = palette.alternateBase().color()
-        border = palette.highlight().color() if self.isSelected() else palette.mid().color()
-        painter.setPen(QPen(border, 3 if self.isSelected() else 1.5))
+        fill, border = display_colors(
+            palette, selected=self.isSelected(), enabled=self.output.enabled
+        )
+        pen = QPen(border, 3 if self.isSelected() else 1.5)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
         painter.setBrush(fill)
         painter.drawRoundedRect(self.rectangle, 10, 10)
         painter.setPen(palette.text().color())
@@ -97,16 +126,32 @@ class DisplayItem(QGraphicsObject):
         self.selected.emit(self.output.name)
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        super().mouseReleaseEvent(event)
-        if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+    def snap_position(self, *, bypass: bool = False) -> tuple[int, int]:
+        x, y = round(self.pos().x() / FACTOR), round(self.pos().y() / FACTOR)
+        if not bypass:
+            views = self.scene().views()
+            zoom = abs(views[0].transform().m11()) if views else 1
             x, y = snap(
                 self.layout,
                 self.output.name,
-                round(self.pos().x() / FACTOR),
-                round(self.pos().y() / FACTOR),
+                x,
+                y,
+                threshold=SNAP_PIXELS / max(FACTOR * zoom, 0.001),
             )
-            self.setPos(x * FACTOR, y * FACTOR)
+        self.setPos(x * FACTOR, y * FACTOR)
+        return x, y
+
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        super().mouseMoveEvent(event)
+        if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+            self.snap_position(bypass=bool(event.modifiers() & Qt.KeyboardModifier.AltModifier))
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        super().mouseReleaseEvent(event)
+        if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+            x, y = self.snap_position(
+                bypass=bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
+            )
             self.moved.emit(self.output.name, x, y)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:

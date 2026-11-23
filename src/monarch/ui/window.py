@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self.loading = False
         self._discard_next = False
         self._closing = False
+        self._quit_requested = False
         self.confirmation: ConfirmationDialog | None = None
         self.integration: IntegrationDialog | None = None
         self.identification = Identification()
@@ -148,6 +149,7 @@ class MainWindow(QMainWindow):
             self.tray.setToolTip("Monarch — guarded monitor profiles")
             self.tray_menu = QMenu(self)
             self.tray.setContextMenu(self.tray_menu)
+            self.tray.activated.connect(self.tray_activated)
             self.update_tray(())
             self.tray.show()
         self.banner = QLabel("Connecting to the compositor…")
@@ -651,7 +653,19 @@ class MainWindow(QMainWindow):
             "Resume automatic switching",
             lambda: self.backend.submit("automation-resume") if self.backend else None,
         )
-        self.tray_menu.addAction("Quit Monarch", self.close)
+        self.tray_menu.addAction("Quit Monarch", self.quit_requested)
+
+    def tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
+            self.show_editor()
+
+    def quit_requested(self) -> None:
+        self._quit_requested = True
+        self.close()
+        self._quit_requested = False
 
     def show_editor(self) -> None:
         self.showNormal()
@@ -869,6 +883,23 @@ class MainWindow(QMainWindow):
             self.backend.submit("recover")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if (
+            self.tray
+            and QSystemTrayIcon.isSystemTrayAvailable()
+            and not self._closing
+            and not self._quit_requested
+        ):
+            event.ignore()
+            if self.model.busy:
+                # Keep a live confirmation reachable; hiding must never imply Keep.
+                self.show_editor()
+                if self.confirmation:
+                    self.confirmation.raise_()
+                    self.confirmation.activateWindow()
+                return
+            self.identification.close()
+            self.hide()
+            return
         if self.backend and self.model.dirty and not self.model.busy and not self._closing:
             answer = QMessageBox.question(
                 self,
@@ -890,6 +921,10 @@ class MainWindow(QMainWindow):
             self.backend.shutdown()
         else:
             event.accept()
+            if self.quit_on_close:
+                application = QApplication.instance()
+                if application is not None:
+                    application.quit()
 
     def backend_finished(self) -> None:
         if self._closing:

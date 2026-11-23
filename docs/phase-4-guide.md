@@ -139,8 +139,13 @@ Launch `monarch gui --tray` for a profile menu on a compatible system tray host
 (such as a StatusNotifier tray). It offers Open Monarch, saved profiles and Quit.
 Selecting a profile brings up the editor, clears save-on-login and starts the
 normal mapping/confirmation flow. It never confirms or persists silently.
-The tray is optional; closing the editor exits and hides its tray icon. It is not
-a background watcher, autostart service, or automatic profile switcher. Without
-a tray host the normal editor and CLI remain available.
+As of 0.1.0rc2 the tray is enabled by default: closing hides the editor and keeps
+the monitor watcher and drafts alive. Open Monarch (or activate the tray icon) to
+return; Quit Monarch explicitly exits and retains normal preview recovery. A live
+preview stays visible until Keep/Revert finishes. With no available tray host,
+closing exits; `monarch gui --no-tray` also restores exit-on-close behavior.
+Background operation does not enable automatic switching or login startup. Newly
+attached outputs are discovered by the existing watcher; automatically configuring
+a previously unknown display is a separate future feature.
 
 See the [Phase 4 evidence](phase-4-report.md) and [progress tracker](progress.md).

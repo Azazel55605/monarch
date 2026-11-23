@@ -183,7 +183,13 @@ def test_snap_and_draft_model_revalidation(inspection):
 # Reuse the synthetic transport/process fixture. No live compositor is involved.
 
 
-def test_real_worker_routes_gui_keep_and_close_through_guard(qtbot, guard_setup):
+@pytest.mark.parametrize("tray_enabled", [False, True])
+def test_real_worker_routes_gui_keep_and_close_through_guard(
+    qtbot, guard_setup, monkeypatch, tray_enabled
+):
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: True)
     from monarch.ui.worker import BackendThread
 
     coordinator, store, baseline, desired, state = guard_setup
@@ -194,7 +200,7 @@ def test_real_worker_routes_gui_keep_and_close_through_guard(qtbot, guard_setup)
         managed=store.directory,
         executable=coordinator.executable,
     )
-    widget = MainWindow(worker)
+    widget = MainWindow(worker, tray_enabled=tray_enabled)
     qtbot.addWidget(widget)
     widget.show()
     worker.start()
@@ -211,7 +217,7 @@ def test_real_worker_routes_gui_keep_and_close_through_guard(qtbot, guard_setup)
         widget.position_x.setValue(-1280)
         widget.start_preview()
         qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
-        widget.close()
+        widget.quit_requested() if tray_enabled else widget.close()
         qtbot.waitUntil(lambda: not worker.isRunning(), timeout=15000)
         assert coordinator.paths.status()["status"] == "reverted"
     finally:
@@ -701,3 +707,152 @@ def test_worker_diagnostics_are_redacted_and_export_without_monitor_mutations(
         widget._closing = True
         widget.close()
         qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+
+
+def test_tray_close_keeps_worker_and_dirty_draft_until_explicit_quit(
+    qtbot, guard_setup, monkeypatch
+):
+    import json
+
+    from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
+
+    from monarch.ui.worker import BackendThread
+
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: True)
+    coordinator, store, baseline, desired, state = guard_setup
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    widget = MainWindow(worker, tray_enabled=True)
+    qtbot.addWidget(widget)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready, timeout=10000)
+        widget.position_x.setValue(-100)
+        draft = widget.model.draft
+        widget.close()
+        assert not widget.isVisible()
+        assert worker.isRunning() and not worker.closing
+        assert widget.model.draft == draft
+        assert widget.tray.isVisible()
+        with qtbot.waitSignal(worker.observed, timeout=5000):
+            worker.submit("refresh")
+        assert json.loads(state.read_text()).get("mutations", 0) == 0
+        widget.tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+        assert widget.isVisible() and widget.model.draft == draft
+        monkeypatch.setattr(
+            QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Cancel
+        )
+        widget.quit_requested()
+        assert worker.isRunning() and not worker.closing
+        monkeypatch.setattr(
+            QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Discard
+        )
+        widget.quit_requested()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+        assert not widget.tray.isVisible()
+    finally:
+        widget._closing = True
+        worker.shutdown()
+        worker.wait(10000)
+        widget.close()
+
+
+def test_tray_close_during_preview_keeps_confirmation_reachable(window, monkeypatch):
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: True)
+    window.tray = QSystemTrayIcon(window)
+    window.model.busy = True
+    window.close()
+    assert window.isVisible() and not window._closing
+    window.model.busy = False
+
+
+def test_missing_tray_host_closes_instead_of_hiding(window, monkeypatch):
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: False)
+    window.tray = QSystemTrayIcon(window)
+    window.close()
+    assert not window.isVisible()
+
+
+@pytest.mark.parametrize("selected", [False, True])
+def test_flat_theme_draws_visible_monitor_outline(qapp, selected):
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QColor, QImage, QPainter, QPalette
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+
+    from monarch.domain.layout import Layout, Output
+    from monarch.ui.canvas import DisplayItem, contrast
+
+    palette = QPalette()
+    for role in (QPalette.ColorRole.Base, QPalette.ColorRole.Mid, QPalette.ColorRole.Highlight):
+        palette.setColor(role, QColor("#2e3440"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#eceff4"))
+    widget = QWidget()
+    widget.setPalette(palette)
+    output = Output("TEST", "", "", "", "1920x1080@60", 1, 0, 0, 0)
+    item = DisplayItem(output, 1, Layout((output,)), True)
+    item.setSelected(selected)
+    image = QImage(350, 200, QImage.Format.Format_ARGB32)
+    image.fill(QColor("#2e3440"))
+    painter = QPainter(image)
+    painter.translate(5, 5)
+    item.paint(painter, QStyleOptionGraphicsItem(), widget)
+    painter.end()
+    # A straight border section, away from labels and rounded corners.
+    assert contrast(image.pixelColor(100, 5), image.pixelColor(100, 15)) >= 3
+    assert item.boundingRect().contains(QRectF(0, 0, 307.2, 172.8))
+
+
+@pytest.mark.parametrize("zoom", [0.5, 2.0])
+def test_pointer_drag_snaps_visibly_before_release_at_different_zoom(qtbot, zoom):
+    from monarch.domain.layout import Layout, Output
+    from monarch.ui.canvas import FACTOR, LayoutCanvas
+
+    outputs = (
+        Output("LEFT", "", "", "", "1920x1080@60", 1, 0, 0, 0),
+        Output("RIGHT", "", "", "", "1920x1080@60", 1, 0, 2200, 0),
+    )
+    canvas = LayoutCanvas()
+    qtbot.addWidget(canvas)
+    canvas.resize(900, 400)
+    canvas.show()
+    canvas.display(Layout(outputs), "RIGHT", True)
+    canvas.resetTransform()
+    canvas.scale(zoom, zoom)
+    item = canvas.items_by_name["RIGHT"]
+    start = canvas.mapFromScene(item.sceneBoundingRect().center())
+    delta = round((1920 - 2200) * FACTOR * zoom) + 8
+    end = start + QPoint(delta, 0)
+    qtbot.mousePress(canvas.viewport(), Qt.MouseButton.LeftButton, pos=start)
+    qtbot.mouseMove(canvas.viewport(), end, delay=30)
+    assert round(item.pos().x() / FACTOR) == 1920
+    qtbot.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, pos=end)
+    assert round(item.pos().x() / FACTOR) == 1920
+
+
+def test_snap_ignores_distant_displays_on_perpendicular_axis(inspection):
+    model = EditorModel()
+    model.receive(inspection)
+    model.update("HDMI-EXAMPLE", enabled=True, transform=0)
+    x, y = snap(model.draft, "HDMI-EXAMPLE", 850, 10000)
+    assert x == 850 and y == 10000
+
+
+def test_gui_tray_default_and_explicit_opt_out(monkeypatch):
+    from monarch.cli import main
+    from monarch.ui import app
+
+    calls = []
+    monkeypatch.setattr(app, "launch", lambda *args, **kwargs: calls.append(kwargs) or 0)
+    assert main(["gui"]) == 0
+    assert calls[-1]["tray"] is True
+    assert main(["gui", "--no-tray"]) == 0
+    assert calls[-1]["tray"] is False

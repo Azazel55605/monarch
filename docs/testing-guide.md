@@ -1,4 +1,4 @@
-# Testing the 0.1.0rc1 candidate
+# Testing the 0.1.0rc2 candidate
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
@@ -14,8 +14,8 @@ From a checkout:
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
 uv build --out-dir dist/candidate
-python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc1.tar.gz
-sudo pacman -U dist/arch/monarch-displays-0.1.0rc1-1-any.pkg.tar.zst
+python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc2.tar.gz
+sudo pacman -U dist/arch/monarch-displays-0.1.0rc2-1-any.pkg.tar.zst
 ```
 
 Review `packaging/arch/PKGBUILD.in` and the generated `dist/arch/PKGBUILD` first.
@@ -40,7 +40,8 @@ Qt 6.12, the Wayland platform plugin is supplied by qt6-base (a pyside6 dependen
 and the SVG icon plugin by qt6-svg. A distro package upgrade can change that layout.
 
 The launcher appears as **Monarch** in the application menu, with the editor and
-tray enabled. Terminal launch is `monarch gui --tray`. It matches Qt's Wayland app ID
+tray enabled. Closing hides to the tray when a host is available; Quit Monarch
+exits. Use `monarch gui --no-tray` for exit on close. Terminal launch is `monarch gui --tray`. It matches Qt's Wayland app ID
 and includes an original SVG icon. Installing does not enable startup or automation.
 
 ## Alternative: isolated Python installation
@@ -50,7 +51,7 @@ this checkout's built wheel:
 
 ```sh
 python -m venv /path/to/monarch-test
-/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc1-py3-none-any.whl[gui]'
+/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc2-py3-none-any.whl[gui]'
 /path/to/monarch-test/bin/monarch gui --tray
 ```
 
@@ -71,7 +72,7 @@ project. Do not install both variants into the same Python environment or use
    rotation/mirror validation, capture observed vs edited, import/export and dirty
    drafts. Catalog changes alone must not apply a display layout.
 4. On a verified, explicitly owned basic configuration only, test Preview → Revert,
-   Preview → Keep, timeout, client close, and explicit Save on login. Verify both
+   Preview → Keep, timeout, explicit Quit/client loss, and explicit Save on login. Verify both
    visible output state and saved configuration. Keep a way to reach another session
    for manual recovery; compositor/GPU failure is outside software-timeout guarantees.
 5. Test manual/tray/keybinding profile switching and identity/missing-display prompts.
@@ -108,7 +109,7 @@ no advanced write is enabled by this packaging change.
    and preserve foreign-session journals for manual review.
 2. Disable automation and any explicitly installed startup entry:
    `monarch automation disable` and `monarch automation autostart disable`. Close
-   every Monarch instance so no watcher remains.
+   every Monarch instance using Quit Monarch in the tray so no watcher remains.
 3. Remove only the application package: `sudo pacman -R monarch-displays`.
    Its command, desktop entry, icon, code, notices and packaged help are removed.
    User profiles, Lua integration, backups and recovery data are retained.

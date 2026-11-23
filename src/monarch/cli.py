@@ -109,7 +109,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     gui = commands.add_parser("gui", help="Open the Qt monitor editor")
     gui.add_argument("--directory", type=Path, help="Owned or registered monitor storage")
-    gui.add_argument("--tray", action="store_true", help="Show an optional profile tray menu")
+    tray_options = gui.add_mutually_exclusive_group()
+    tray_options.add_argument(
+        "--tray",
+        dest="tray",
+        action="store_true",
+        default=True,
+        help="Show the tray and close to it when available (default)",
+    )
+    tray_options.add_argument(
+        "--no-tray",
+        dest="tray",
+        action="store_false",
+        help="Exit when the editor closes",
+    )
     add_commands(commands)
     add_profile_commands(commands)
     add_automation_commands(commands)
