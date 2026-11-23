@@ -98,3 +98,17 @@ configs are unsupported for mutation until explicit Phase 3 integration.
 SIGKILL, persistence, failed persistence reload, guard SIGKILL/manual recovery,
 and virtual hot-unplug using a real nested compositor. It does not certify
 physical modes, mixed-GPU scanout, or recovery from hardware/compositor crashes.
+
+## Phase 3 GUI and registered desktop configurations
+
+The GUI uses PySide6/Qt Widgets and a separate asyncio worker thread. Qt 6.12.0 is
+natively tested; the dependency range remains Qt 6.8–6.x. Desktop writes require
+an explicit basic-monitor ownership/reload agreement, exact registration/source
+hashes and the same clean Hyprland 0.57.2 gate. Unknown custom/debug flags remain
+inspectable without claiming write support.
+
+Default config lookup follows tagged hyprutils 0.14.3/0.14.4 and is coupled to
+`reload full-reset` in the guard. Empty/relative XDG search entries that could
+change selection stay unsupported when reached. Explicit paths retain ordinary
+reload. A selected file alone still cannot authorize writes. See the
+[Phase 3 guide](phase-3-guide.md) and [native evidence](phase-3-report.md).

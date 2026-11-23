@@ -1,4 +1,4 @@
-"""Phase 2 owns an exact minimal config root, not arbitrary user Lua."""
+"""Owned monitor data with exact minimal-root or explicitly registered-root verification."""
 
 import json
 from dataclasses import dataclass
@@ -7,6 +7,7 @@ from pathlib import Path
 from monarch.domain.layout import Layout, ordered, rule
 from monarch.errors import MonarchError
 from monarch.storage.files import atomic_write, digest, private_dir, read_private
+from monarch.storage.integration import contract, verify_contract
 
 ROOT = (
     b"-- Monarch owned configuration v1. No external rules or side effects.\n"
@@ -30,7 +31,8 @@ class Managed:
 
     @property
     def root(self) -> Path:
-        return self.directory / "hyprland.lua"
+        registered = contract(self.directory)
+        return Path(registered["root"]) if registered else self.directory / "hyprland.lua"
 
     @property
     def monitors(self) -> Path:
@@ -46,11 +48,25 @@ class Managed:
 
     def read(self) -> tuple[Layout, bytes]:
         private_dir(self.directory)
-        if read_private(self.root) != ROOT:
-            raise MonarchError("Configuration root is not the exact Monarch-owned template.")
+        self.verify_root()
         content = read_private(self.monitors)
         layout = parse_content(content)
         return layout, content
+
+    def verify_root(self) -> None:
+        if contract(self.directory) is not None:
+            verify_contract(self.directory)
+        elif read_private(self.root) != ROOT:
+            raise MonarchError("Configuration root is not the exact Monarch-owned template.")
+
+    def root_fingerprint(self) -> str:
+        self.verify_root()
+        registered = contract(self.directory)
+        if registered is not None:
+            import json
+
+            return digest(json.dumps(registered, sort_keys=True).encode())
+        return digest(ROOT)
 
     def check(self, expected: str) -> None:
         _, content = self.read()

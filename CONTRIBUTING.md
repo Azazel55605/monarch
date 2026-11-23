@@ -1,6 +1,6 @@
 # Contributing to Monarch
 
-Monarch has inspection and guarded CLI preview foundations. Start with the [implementation plan](docs/implementation-plan.md)
+Monarch has a native Qt manual-editor alpha and guarded CLI foundations. Start with the [implementation plan](docs/implementation-plan.md)
 and [progress tracker](docs/progress.md). Keep changes focused on a task ID;
 record the evidence required to mark it done. Discuss architectural departures
 and new scope before treating them as accepted roadmap changes.
@@ -20,9 +20,9 @@ and unrelated process/window information. Bug reports should include software
 versions, a generic topology, reproduction steps, expected/observed behavior,
 and redacted errors. Never include credentials.
 
-Use Python 3.12+ and uv 0.13.9 (the CI version). `uv sync --locked` installs the
-package and development dependencies. Run `uv run ruff check .`, `uv run ruff
-format --check .`, `uv run mypy`, `uv run pytest`, and `uv build` before submitting.
+Use Python 3.12+ and uv 0.13.9 (the CI version). `uv sync --locked --extra gui --group gui-dev` installs the
+package and development dependencies. Use `uv run --extra gui --group gui-dev` for Ruff and mypy, and set
+`QT_QPA_PLATFORM=offscreen` when running pytest. Build with `uv build`.
 The automated tests require Linux (including `/proc` and PTYs), but no live
 compositor, Qt installation, or GPU. Guard integration tests launch an independent
 process and exercise client death, deadline enforcement, locking and terminal
@@ -44,3 +44,15 @@ local subprocess wrapper. It requires render-device access, which may be absent
 in a sandbox. Keep that evidence separate from physical-output acceptance. See
 [Phase 2 evidence](docs/phase-2-report.md) and the [ownership contract](docs/phase-2-guide.md).
 Never remove or relax the owned-root check to make an arbitrary local config pass.
+
+
+Phase 3 GUI checks use pytest-qt, synthetic inspection fixtures and an actual
+independent guard process with a fake transport. `tools/probe_gui.py` additionally
+checks the real Qt/Wayland editor in a disposable default-XDG compositor with
+mixed fractional scales, reviewed integration, persistence/revert, identification
+placement and hotplug. Never substitute offscreen tests for that native evidence.
+
+The root ownership check now accepts an explicit, hashed registration as well as
+the minimal owned root. Do not weaken either contract. Config source closure and
+basic-monitor delegation are operator-reviewed; arbitrary Lua is not parsed or
+executed for discovery. See the [Phase 3 guide](docs/phase-3-guide.md).

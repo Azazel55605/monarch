@@ -48,6 +48,7 @@ def config_location(
     explicit: Path | None = None,
     *,
     proc_root: Path = Path("/proc"),
+    resolve_xdg: bool = False,
 ) -> ConfigLocation:
     """Use the compositor's process metadata, not this CLI's environment guesses.
 
@@ -83,13 +84,32 @@ def config_location(
             if not path.is_absolute():
                 path = (proc / "cwd").resolve(strict=True) / path
             return ConfigLocation(path, "compositor environment", True)
-        # XDG search paths and system defaults can alter which file wins. Never
-        # mark a conventional path as verified without compositor confirmation.
-        root = environment.get("XDG_CONFIG_HOME")
-        if not root and environment.get("HOME"):
-            root = str(Path(environment["HOME"]) / ".config")
-        if root and Path(root).is_absolute():
-            return ConfigLocation(Path(root) / "hypr" / "hyprland.lua", "XDG candidate")
+        roots = []
+        xdg = environment.get("XDG_CONFIG_HOME", "")
+        home = environment.get("HOME", "")
+        if xdg and Path(xdg).is_absolute():
+            roots.append(Path(xdg))
+        if home and Path(home).is_absolute():
+            roots.append(Path(home) / ".config")
+        search: list[Path | None] = list(roots)
+        if "XDG_CONFIG_DIRS" in environment:
+            for item in environment["XDG_CONFIG_DIRS"].split(":"):
+                search.append(Path(item) if item and Path(item).is_absolute() else None)
+        search.append(Path("/etc/xdg"))
+        program = "hyprlandd" if Path(args[0]).name == "Hyprlandd" else "hyprland"
+        if resolve_xdg:
+            # Tagged 0.57.2 full-reset repeats the hyprutils search. The guard
+            # must use full-reset for this target; ordinary reload caches its path.
+            for directory in search:
+                if directory is None:
+                    return ConfigLocation(
+                        None, "Unsupported relative or empty XDG config search entry"
+                    )
+                candidate = directory / "hypr" / f"{program}.lua"
+                if candidate.is_file():
+                    return ConfigLocation(candidate, "compositor XDG reload search", True)
+        if roots:
+            return ConfigLocation(roots[0] / "hypr" / f"{program}.lua", "XDG candidate")
     except (OSError, ValueError, IndexError, UnicodeError):
         pass
     return ConfigLocation(None, "unavailable; select --config explicitly")

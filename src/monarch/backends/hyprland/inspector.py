@@ -63,12 +63,17 @@ class Inspector:
             version == "0.57.2"
             and version_data.get("tag") == "v0.57.2"
             and version_data.get("dirty") is False
+            and not version_data.get("flags")
         )
         if not stable:
             diagnostics.append("Version is outside the verified stable baseline; inspection only.")
         if provider == "unknown":
             diagnostics.append("Config provider is unknown; no provider inferred from filename.")
-        location = config_location(self.client.session, self.config)
+        location = config_location(
+            self.client.session,
+            self.config,
+            resolve_xdg=stable and version_data.get("systemHyprutils") in ("0.14.3", "0.14.4"),
+        )
         if not location.verified:
             diagnostics.append(
                 "Active configuration path is unverified; no files will be modified."

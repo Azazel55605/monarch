@@ -1,11 +1,10 @@
 # Validation and release gates
 
-Status: Phase 1 discovery and Phase 2 guarded CLI checks have run; see the
-[Phase 1 evidence](phase-1-report.md) and [Phase 2 evidence](phase-2-report.md).
-Apply/recovery is verified on a real nested compositor with virtual outputs.
-The matrix below remains the physical-hardware/editor/release acceptance strategy.
-No parent physical output mutation, native Qt editor validation, or release
-acceptance has run.
+Status: Phase 1–3 automated and native checks have run; see the
+[Phase 2 evidence](phase-2-report.md) and [Phase 3 evidence](phase-3-report.md).
+Native GUI/apply/recovery checks use a real nested compositor with virtual outputs.
+Physical GUI startup/discovery is verified read-only; parent modesetting and the
+full release matrix remain open. Automated Qt tests use offscreen rendering.
 Every report must record application commit, Python/Qt and Hyprland versions,
 Wayland session type, GPU/driver class, generic display topology, outcome, and
 limitations. Keep serial numbers, home paths, private configs, and raw EDID out

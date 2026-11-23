@@ -53,7 +53,9 @@ class Output:
             if any(abs(v / scale - round(v / scale)) > 0.001 for v in (mode.width, mode.height)):
                 raise MonarchError("Scale must produce integer logical dimensions.")
         elif row["enabled"] and not allow_preferred:
-            raise MonarchError("Enabled outputs require an explicit advertised mode in Phase 2.")
+            raise MonarchError(
+                "Select an advertised resolution and refresh rate for each enabled display."
+            )
         return cls(**row)
 
     @property

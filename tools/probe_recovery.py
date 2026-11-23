@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from monarch.storage.files import atomic_write, digest, read_private, write_json
 from monarch.storage.managed import Managed, render
 
 
-async def exercise(session: Session, env: dict[str, str], store: Managed, root: Path):
+async def prepare_baseline(session: Session, env: dict[str, str], store: Managed):
     writer = Writer(session, env=env, timeout=5)
     await writer.read("version")
     await writer.observe()
@@ -73,6 +74,11 @@ async def exercise(session: Session, env: dict[str, str], store: Managed, root: 
     else:
         raise MonarchError("Owned virtual baseline did not settle.")
     baseline.validate(await writer.observe())
+    return writer, baseline
+
+
+async def exercise(session: Session, env: dict[str, str], store: Managed, root: Path):
+    writer, baseline = await prepare_baseline(session, env, store)
     desired = Layout(
         tuple(replace(o, scale=1.25) if o.name == "MONARCH-A" else o for o in baseline.outputs)
     )
@@ -109,7 +115,8 @@ from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
 from monarch.services.coordinator import Coordinator
 from monarch.storage.managed import Managed
-async def run():
+async @contextmanager
+def nested_session(*, default_config=False):
  c=Coordinator(Session.from_environment(),state_home=Path(os.environ['PROBE_STATE']))
  layout=Layout.parse(json.loads(Path(os.environ['PROBE_LAYOUT']).read_text()))
  h=await c.preview(Managed(Path(os.environ['PROBE_ROOT'])),layout,seconds=10)
@@ -216,7 +223,8 @@ asyncio.run(run())
     }
 
 
-def run():
+@contextmanager
+def nested_session(*, default_config=False):
     if not os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("XDG_RUNTIME_DIR"):
         raise MonarchError("A parent Wayland session is required.")
     parent = Path(os.environ["WAYLAND_DISPLAY"])
@@ -228,7 +236,7 @@ def run():
         runtime.mkdir(mode=0o700)
         for directory in ("cache", "state", "xdg"):
             (root / directory).mkdir(mode=0o700)
-        store = Managed(root / "owned")
+        store = Managed(root / "xdg" / "hypr" if default_config else root / "owned")
         seed = Layout((Output("WAYLAND-1", "", "", "", "1280x720@60", 1, 0, 0, 0),))
         store.create(seed)
         env = dict(
@@ -246,7 +254,10 @@ def run():
         env.pop("HYPRLAND_CONFIG", None)
         with (root / "log").open("w") as log:
             process = subprocess.Popen(
-                ["Hyprland", "--config", str(store.root)], env=env, stdout=log, stderr=log
+                ["Hyprland"] if default_config else ["Hyprland", "--config", str(store.root)],
+                env=env,
+                stdout=log,
+                stderr=log,
             )
             try:
                 deadline = time.monotonic() + 20
@@ -275,8 +286,7 @@ def run():
                     time.sleep(0.1)
                 else:
                     raise MonarchError("Nested compositor unavailable; check render-device access.")
-                result = asyncio.run(exercise(Session(runtime, signature), env, store, root))
-                print(json.dumps(result, indent=2))
+                yield Session(runtime, signature), env, store, root
             except BaseException:
                 logs = list(runtime.glob("hypr/*/hyprland.log"))
                 if logs:
@@ -289,6 +299,12 @@ def run():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+
+
+def run():
+    with nested_session() as (session, env, store, root):
+        result = asyncio.run(exercise(session, env, store, root))
+        print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

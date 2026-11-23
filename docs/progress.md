@@ -16,7 +16,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | 0 — Definition/publication | Done | [Public repository](https://github.com/Azazel55605/monarch), `main`; initial local/remote commit verified: `a7cd9bf` |
 | 1 — Read-only foundation | Done | [Phase 1 implementation and feasibility report](phase-1-report.md); read-only native discovery and nested Lua round-trip |
 | 2 — Apply and recovery | Done | [Phase 2 evidence](phase-2-report.md); guarded CLI and native nested recovery matrix |
-| 3 — Qt manual editor | Planned | None |
+| 3 — Qt manual editor | Done | [Phase 3 evidence](phase-3-report.md); Qt tests, native fractional-scale GUI and read-only physical startup |
 | 4 — Profiles/quick switch | Planned | None |
 | 5 — Automatic switching | Planned | None |
 | 6 — Advanced settings | Planned | None |
@@ -40,10 +40,10 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M2.3 | Shared coordinator and independent recovery guard | Done | [Coordinator](../src/monarch/services/coordinator.py), [independent guard](../src/monarch/services/guard.py), [process/PTY tests](../tests/test_guard.py) |
 | M2.4 | Managed-file writer, backup and recovery journal | Done | [Managed storage](../src/monarch/storage/managed.py), [transaction recovery](../src/monarch/services/transaction.py), [storage tests](../tests/test_storage.py); stale/foreign journal and conflict checks |
 | M2.5 | Native apply/revert fault acceptance | Done | [Native recovery probe](../tools/probe_recovery.py), [observed results and limits](phase-2-report.md); parent physical outputs unchanged |
-| M3.1 | Window, canvas, snapping, keyboard/numeric editing | Planned | Qt interaction and native mixed-DPI checks |
-| M3.2 | Display controls, identification and validation UI | Planned | Native multi-output editing scenario |
-| M3.3 | Keep/Revert, stale topology and dirty-state UX | Planned | Visible countdown, accessible recovery, hotplug during edit |
-| M3.4 | Explicit save-on-login/config integration | Planned | Preview include, conflict detection, reload and restore |
+| M3.1 | Window, canvas, snapping, keyboard/numeric editing | Done | [Qt window/canvas](../src/monarch/ui/window.py), [model](../src/monarch/ui/model.py), [Qt interaction tests](../tests/test_ui.py) |
+| M3.2 | Display controls, identification and validation UI | Done | [Display controls](../src/monarch/ui/window.py), [native identification](../src/monarch/ui/identify.py), [mapped-output evidence](phase-3-report.md) |
+| M3.3 | Keep/Revert, stale topology and dirty-state UX | Done | [Confirmation dialog](../src/monarch/ui/dialogs.py), [worker](../src/monarch/ui/worker.py); deadline, stale edits and GUI-close guard recovery tests |
+| M3.4 | Explicit save-on-login/config integration | Done | [Reviewed desktop integration](../src/monarch/storage/integration.py), [guide](phase-3-guide.md), [native GUI probe](../tools/probe_gui.py); pinned sources and conflict handling |
 | M4.1 | Versioned profile CRUD, migration, import/export | Planned | Invalid/future-schema, atomic storage and migration fixtures |
 | M4.2 | Stable identity mapping and missing/ambiguous outputs | Planned | Connector rename and duplicate/absent serial scenarios |
 | M4.3 | GUI/tray quick switching and CLI/keybinding interface | Planned | Shared transaction and confirmation across entry points |
@@ -59,10 +59,16 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Start Phase 3: connect the Qt manual editor to the existing coordinator and design
-explicit normal-desktop ownership/integration before enabling GUI apply. Keep
-profile/automation work in later phases. Physical output changes, native Qt
-acceptance, and release gates remain open.
+Start Phase 4: versioned profile storage, CRUD/import/export, stable identity
+mapping and quick switching through the existing coordinator. Automatic selection
+stays in Phase 5. Physical modesetting and the broader release matrix remain open.
+
+## Phase 3 checks
+
+See the [Phase 3 report](phase-3-report.md) for automated/installed-wheel results,
+real native Qt/Wayland integration, fractional scaling, Keep/persistence, Revert,
+per-output placement and hotplug checks. A read-only physical three-output startup
+also passed without monitor changes. The GUI is a manual-editor alpha.
 
 ## Phase 2 checks
 

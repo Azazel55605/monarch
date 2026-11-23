@@ -7,6 +7,8 @@ from monarch.errors import MonarchError
 
 
 class Writer(Hyprctl):
+    full_reset: bool = False
+
     async def observe(self) -> tuple[Monitor, ...]:
         return parse_monitors(await self.read("monitors", "all"))
 
@@ -17,7 +19,7 @@ class Writer(Hyprctl):
         await self.check_errors()
 
     async def reload(self) -> None:
-        response = await self._request(("reload",))
+        response = await self._request(("reload", "full-reset") if self.full_reset else ("reload",))
         if response.strip() != b"ok":
             raise MonarchError("Hyprland rejected the configuration reload.")
         await self.check_errors()

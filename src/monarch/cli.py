@@ -156,8 +156,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=3.0,
         help="Per-command timeout in seconds (default: 3)",
     )
+    gui = commands.add_parser("gui", help="Open the Qt monitor editor")
+    gui.add_argument("--directory", type=Path, help="Owned or registered monitor storage")
     add_commands(commands)
     args = parser.parse_args(argv)
+    if args.command == "gui":
+        try:
+            from monarch.ui.app import launch
+
+            return launch(args.directory)
+        except ModuleNotFoundError:
+            print(
+                "Monarch GUI needs PySide6. Run uv run --extra gui monarch gui.",
+                file=sys.stderr,
+            )
+            return 2
     try:
         return asyncio.run(inspect_command(args) if args.command == "inspect" else execute(args))
     except OSError:

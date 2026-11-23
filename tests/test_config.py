@@ -65,3 +65,24 @@ def test_inaccessible_process_metadata_stays_unknown(tmp_path):
     location = config_location(session, proc_root=proc_root)
     assert location.path is None
     assert not location.verified
+
+
+def test_versioned_xdg_target_follows_tagged_search_order(tmp_path):
+    xdg = tmp_path / "xdg"
+    home = tmp_path / "home"
+    system = tmp_path / "system"
+    for directory in (xdg, home / ".config", system):
+        (directory / "hypr").mkdir(parents=True)
+        (directory / "hypr" / "hyprland.lua").write_text("-- sample\n")
+    session, proc_root = metadata(
+        tmp_path,
+        [],
+        {"XDG_CONFIG_HOME": str(xdg), "HOME": str(home), "XDG_CONFIG_DIRS": str(system)},
+    )
+    location = config_location(session, proc_root=proc_root, resolve_xdg=True)
+    assert location.path == xdg / "hypr" / "hyprland.lua" and location.verified
+    (xdg / "hypr" / "hyprland.lua").unlink()
+    assert (
+        config_location(session, proc_root=proc_root, resolve_xdg=True).path
+        == home / ".config/hypr/hyprland.lua"
+    )

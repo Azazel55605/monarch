@@ -1,5 +1,8 @@
 # Guarded CLI previews and ownership
 
+This records the original Phase 2 scope. The [Phase 3 guide](phase-3-guide.md)
+describes the current GUI and expanded, explicitly registered desktop contract.
+
 Phase 2 provides backend and recovery primitives for the future Qt editor.
 Inspection remains safe to use in a normal Hyprland session. The write path is
 currently restricted to an explicitly owned, minimal configuration session.

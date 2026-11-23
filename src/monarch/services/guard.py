@@ -138,9 +138,11 @@ async def run(request_path: Path) -> int:
     writer = Writer(session, executable=request.get("executable", "hyprctl"))
     transaction = Transaction(writer, paths, lambda: session_token(session))
 
+    allow_xdg = False
+
     def verified_token() -> str:
         if transaction.record is not None:
-            location = config_location(session)
+            location = config_location(session, resolve_xdg=allow_xdg)
             if not location.verified or location.path != transaction.managed.root:
                 raise MonarchError("Active configuration ownership changed; refusing replay.")
         return session_token(session)
@@ -153,6 +155,8 @@ async def run(request_path: Path) -> int:
             or not inspection.capabilities.lua_advertised
         ):
             raise MonarchError("Mutations require the clean Hyprland 0.57.2 Lua baseline.")
+        allow_xdg = inspection.config.source == "compositor XDG reload search"
+        writer.full_reset = allow_xdg
         if request["action"] == "recover":
             await transaction.recover()
         else:
@@ -160,7 +164,7 @@ async def run(request_path: Path) -> int:
             if type(seconds) not in (int, float) or not 1 <= seconds <= 60:
                 raise MonarchError("Preview duration must be between 1 and 60 seconds.")
             managed = Managed(Path(request["root"]))
-            location = config_location(session)
+            location = config_location(session, resolve_xdg=allow_xdg)
             active = location.path if location.verified else None
             async with asyncio.timeout(20):
                 await transaction.prepare(managed, Layout.parse(request["layout"]), active, seconds)

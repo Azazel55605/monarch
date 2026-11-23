@@ -43,6 +43,8 @@ class Transaction:
 
     def check_session(self) -> None:
         assert self.record is not None
+        if self.record.get("root_fingerprint", digest(ROOT)) != self.managed.root_fingerprint():
+            raise MonarchError("Configuration registration changed during the transaction.")
         if self.record["session_token"] != self.token():
             raise MonarchError(
                 "Recovery belongs to a different compositor generation; refusing replay."
@@ -92,6 +94,7 @@ class Transaction:
             "baseline": baseline.to_dict(),
             "desired": desired.to_dict(),
             "disk_content": disk_bytes.decode(),
+            "root_fingerprint": managed.root_fingerprint(),
             "disk_digest": digest(disk_bytes),
             "candidate_digest": digest(render(desired)),
         }
@@ -141,7 +144,8 @@ class Transaction:
         self.check_session()
         self.managed.check(self.record["disk_digest"])
         self.save("applying")
-        # Exact root has no user code: reload clears hidden/sticky runtime rules.
+        # Reload only the verified owned or explicitly reviewed registered root.
+        # Registration approval covers executing that user Lua again.
         await self.backend.reload()
         baseline = Layout.parse(self.record["baseline"])
         await self.set_layout(baseline)
@@ -205,8 +209,7 @@ class Transaction:
         self.save("recovering", reason)
         try:
             self.check_session()
-            if read_private(self.managed.root) != ROOT:
-                raise MonarchError("Root changed; refusing to execute external Lua.")
+            self.managed.verify_root()
             current = read_private(self.managed.monitors)
             if digest(current) not in (self.record["disk_digest"], self.record["candidate_digest"]):
                 raise MonarchError("External monitor file edit is preserved.")

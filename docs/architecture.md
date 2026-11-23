@@ -1,8 +1,9 @@
 # Architecture and intended behavior
 
-Status: Phase 2 implements guarded CLI previews, validation, persistence primitives,
-and independent recovery. Qt presentation, normal desktop integration, profiles,
-and automation remain planned. See [Phase 2 behavior](phase-2-guide.md),
+Status: Phase 3 adds the native Qt editor and explicitly reviewed desktop
+integration to the existing guarded apply/recovery services. Profiles and automation
+remain planned. See [Phase 3 behavior](phase-3-guide.md), [evidence](phase-3-report.md),
+and the historical [Phase 2 behavior](phase-2-guide.md),
 [evidence](phase-2-report.md), [research](compatibility.md), and the
 [implementation plan](implementation-plan.md).
 
@@ -19,8 +20,8 @@ and automation remain planned. See [Phase 2 behavior](phase-2-guide.md),
 | Qt presentation | Layout canvas, properties panel, profiles, transaction state, diagnostics |
 | CLI/session agent | Quick switch commands, optional watcher, local authenticated control channel |
 
-Use a `src/monarch/` package with `domain/`, `backends/hyprland/`, `services/`,
-`storage/`, `ui/`, and `cli/` modules when implementation starts. Prefer standard
+The `src/monarch/` package uses `domain/`, `backends/hyprland/`, `services/`,
+`storage/`, `ui/`, and `cli/` modules. Prefer standard
 library facilities where sufficient. Python 3.12+ and PySide6/Qt 6 Widgets are the
 initial choices. Use QProcess/Qt socket integration or bounded worker operations;
 no blocking subprocess or socket reads on the GUI thread. Tests use pytest,
@@ -29,8 +30,8 @@ runtime dependencies after checking supported Arch packages.
 
 ## GUI workflow
 
-The main window has a top profile selector, a central display canvas, a display
-properties panel, and an Apply/Revert bar. Monitor rectangles reflect logical
+The implemented main window has a central display canvas, a display properties
+panel, and an Apply/Revert bar. Phase 4 adds profile selection. Monitor rectangles reflect logical
 size after scale and rotation; dragging supports edge snapping and alignment.
 Numeric coordinates and keyboard controls offer the same actions without drag.
 A selected monitor exposes enabled state, mode, refresh, scale, transform, and
@@ -97,8 +98,21 @@ This is an exclusive-control contract for isolated/explicitly owned sessions, no
 a parser or adoption tool for arbitrary Lua. External controllers are unsupported;
 observations cannot detect every hidden rule or advanced runtime override. The
 armed guard resets rules by reloading only the verified, side-effect-free owned
-root. Phase 3 must extend the ownership model deliberately before normal desktop
-configuration integration. It must not weaken the exact-root check silently.
+root. Phase 3 adds a second, explicitly registered contract for basic desktop monitor
+configuration, described below.
+
+Desktop registration appends a reviewed include and pins the root and every
+operator-declared dependency. It preserves unrelated root bytes and permissions,
+keeps private backups, and blocks changed files until explicit re-review. It is
+not a Lua sandbox or automatic transitive import discovery. Advanced/dynamic
+monitor rules are outside the registration contract. A transaction pins the
+contract fingerprint as well as monitor content. The Qt worker performs I/O off
+the GUI thread and uses the same guard API as the CLI.
+
+For default XDG targets, tagged lookup is permitted only with verified hyprutils
+versions and uses explicit `reload full-reset`; ordinary reload caches its path.
+Explicit config arguments/environment paths keep ordinary reload. Full-reset
+runs the reviewed Lua context again and is explained before integration approval.
 
 The guard owns all mutations and the session `flock`. Its stdin control pipe uses
 the transaction ID, Keep/Revert, and an explicit persistence boolean. Client EOF,
@@ -125,10 +139,10 @@ The following paths and integration direction also apply to future phases:
 
 Profiles and preferences live under `$XDG_CONFIG_HOME/monarch/`; journals and logs
 under `$XDG_STATE_HOME/monarch/`; locks and local IPC under `$XDG_RUNTIME_DIR`.
-Use user-private permissions. Planned persistence is a dedicated managed Lua file
-such as `$XDG_CONFIG_HOME/hypr/monarch/monitors.lua` loaded explicitly from the
-active configuration. Confirm the exact include mechanism in phase 1. The UI
-previews the integration and requests an explicit user action to install it.
+Use user-private permissions. Persistence uses a dedicated managed Lua file
+such as `$XDG_CONFIG_HOME/hypr/monarch/monarch_monitors.lua` loaded explicitly
+from the active configuration. The UI previews the integration and requires
+an explicit user action to install it.
 
 Do not parse/rewrite arbitrary Lua or replace the main Hyprland config. Recognize
 custom config paths, ownership conflicts, symlinks and external file changes;

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "monarch-displays"
-version = "0.1.0.dev2"
-description = "Guarded Hyprland monitor previews and the foundation for a Qt monitor manager"
+version = "0.1.0.dev3"
+description = "A native Qt monitor editor for Hyprland with guarded previews and Lua integration"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -25,6 +25,7 @@ Repository = "https://github.com/Azazel55605/monarch"
 
 [dependency-groups]
 dev = ["pytest>=8.3,<10", "ruff>=0.14,<1", "mypy>=1.18,<2", "build>=1.3,<2"]
+gui-dev = ["pytest-qt>=4.5,<5"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/monarch"]

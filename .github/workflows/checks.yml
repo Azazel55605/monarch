@@ -7,6 +7,8 @@ permissions:
 jobs:
   python:
     runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
     strategy:
       matrix:
         python: ['3.12', '3.13', '3.14']
@@ -15,9 +17,9 @@ jobs:
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: '0.13.9'
-      - run: uv sync --locked --python ${{ matrix.python }}
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - run: uv sync --locked --extra gui --group gui-dev --python ${{ matrix.python }}
+      - run: uv run --extra gui --group gui-dev ruff check .
+      - run: uv run --extra gui --group gui-dev ruff format --check .
+      - run: uv run --extra gui --group gui-dev mypy
+      - run: uv run --extra gui --group gui-dev pytest
       - run: uv build
