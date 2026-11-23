@@ -967,3 +967,14 @@ def test_external_display_bar_builds_guarded_preview(qtbot, inspection):
     assert layout.outputs[1].enabled and not layout.outputs[1].mirror
     assert layout.outputs[1].x == current.outputs[0].x + current.outputs[0].size[0]
     assert widget.model.busy
+
+
+def test_reconnected_monitor_appears_while_editing_a_draft(window, inspection):
+    window.position_x.setValue(-900)
+    extra = replace(inspection.monitors[1], name="HDMI-NEW", disabled=False)
+    window.receive(replace(inspection, monitors=(*inspection.monitors, extra)))
+    assert window.model.stale
+    assert window.model.output("DP-EXAMPLE").x == -900
+    assert "HDMI-NEW" in window.canvas.items_by_name
+    assert window.model.output("HDMI-NEW").enabled
+    assert not window.apply.isEnabled()

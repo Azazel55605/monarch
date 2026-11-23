@@ -185,9 +185,14 @@ class BackendThread(QThread):
                         self.automation_failed.emit(str(exc))
                 elif operation == "automatic-preview":
                     await self._automatic_preview(*args)
-                elif operation == "automatic-decline":
+                elif operation == "automatic-defer":
                     if self.automation:
-                        self.automation.finish({"reason": "user_revert"})
+                        try:
+                            current = self.automation.authorize()
+                        except MonarchError:
+                            return  # Manual control or a policy change already revoked the offer.
+                        if args[0] == current:
+                            self.automation.defer_offer()
                 elif operation == "profile":
                     try:
                         await self._profile(*args)
@@ -492,6 +497,7 @@ class BackendThread(QThread):
     async def _automatic_loop(self) -> None:
         assert self.automation is not None and self.inspector is not None
         previous_wall = time.time()
+        enabled = False
         while True:
             try:
                 wall = time.time()
@@ -500,11 +506,7 @@ class BackendThread(QThread):
                 previous_wall = wall
                 if not self.previewing and self.handle is None:
                     enabled = self.automation.store.read().enabled
-                    inspection = (
-                        (await self.inspector.inspect())
-                        if enabled or self.latest_inspection is None
-                        else self.latest_inspection
-                    )
+                    inspection = await self.inspector.inspect()
                     if inspection != self.latest_inspection:
                         # Polling is also the recovery path for missed hotplug events.
                         await self._refresh(inspection)
@@ -530,7 +532,7 @@ class BackendThread(QThread):
             except (MonarchError, OSError, ValueError) as exc:
                 self.automation.stable_key = ""
                 self.automation_state.emit({"reason": str(exc), "pinned": False})
-            await asyncio.sleep(1)
+            await asyncio.sleep(1 if enabled else 4)
 
     async def _automatic_preview(self, *args: object) -> None:
         assert self.automation is not None

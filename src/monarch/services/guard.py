@@ -229,7 +229,10 @@ def main() -> int:
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
     try:
         return asyncio.run(run(args.request))
-    except (MonarchError, OSError, ValueError, KeyError, TypeError, TimeoutError):
+    except MonarchError as exc:
+        notify("failed", reason="Guard setup failed.", detail=str(exc))
+        return 2
+    except (OSError, ValueError, KeyError, TypeError, TimeoutError):
         # Unexpected failures before mutation leave the journal intact. Controlled
         # operation exceptions after arming always enter rollback in controlled().
         notify(

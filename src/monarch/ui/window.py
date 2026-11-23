@@ -39,7 +39,7 @@ from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
-from monarch.domain.quick_layout import arrange_external, connection_key, external
+from monarch.domain.quick_layout import arrange_external, connection_key, external, identity
 from monarch.errors import MonarchError
 from monarch.resources import APP_ID, icon_path
 from monarch.ui.automation import AutomationDialog
@@ -380,12 +380,14 @@ class MainWindow(QMainWindow):
             selected = self.model.selected
             self.displays.clear()
             connected = (
-                {m.name for m in self.model.inspection.monitors} if self.model.inspection else set()
+                {m.name: m for m in self.model.inspection.monitors} if self.model.inspection else {}
             )
             for index, output in enumerate(draft.outputs, 1):
                 state = (
                     "missing"
                     if output.name not in connected
+                    else "replaced · discard draft to use"
+                    if identity(output) != identity(connected[output.name])
                     else "enabled"
                     if output.enabled
                     else "disabled"
@@ -647,7 +649,7 @@ class MainWindow(QMainWindow):
             or QApplication.mouseButtons() != Qt.MouseButton.NoButton
         ):
             if self.backend:
-                self.backend.submit("automatic-decline")
+                self.backend.submit("automatic-defer", authorization)
             return
         self.show_editor()
         self.persist.setChecked(False)
@@ -906,7 +908,7 @@ class MainWindow(QMainWindow):
         self.model.stale = False
         self.render_state()
         if switch:
-            self.start_preview()
+            self.start_preview(topology_snapshot=draft_layout(self.model.inspection.monitors))
 
     def select_display(self, name: str) -> None:
         self.model.selected = name

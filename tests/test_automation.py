@@ -420,3 +420,14 @@ def test_tv_on_reused_hdmi_resumes_manual_pause_and_skips_old_mode_reload(guard_
         asyncio.run(run())
     finally:
         engine.close()
+
+
+def test_temporary_editor_block_reoffers_profile_without_resetting_user_revert(automatic):
+    engine, inspection, profile, _, _ = automatic
+    assert offer(engine, inspection).profile == profile
+    engine.defer_offer()
+    assert engine.evaluate(inspection, idle=True, ready=True, now=3)[1] is None
+    assert engine.evaluate(inspection, idle=True, ready=True, now=5)[1].profile == profile
+    engine.finish({"reason": "user_revert"}, now=5)
+    engine.defer_offer()
+    assert engine.evaluate(inspection, idle=True, ready=True, now=15)[1] is None

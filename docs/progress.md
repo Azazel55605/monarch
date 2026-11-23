@@ -67,6 +67,14 @@ and fresh-login acceptance still precede stable promotion. Conditional VRR,
 HDR/depth/color/ICC remain future work.
 No stable tag/publication or AUR submission has been performed.
 
+## Returning to the desktop setup
+
+After returning from a TV, the installed rc6 watcher was still paused and the
+Home profile matched the layout after manual switching. rc8 carries the scoped
+pause fix from rc7 and shows newly detected outputs alongside a pending draft.
+Temporary UI conflicts defer a profile offer, while explicit Revert still
+suppresses it. The returning-display sequence needs a user test with rc8 installed.
+
 ## TV hotplug follow-up
 
 Physical feedback exposed a paused watcher and a replacement HDMI display that

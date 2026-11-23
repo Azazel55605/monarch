@@ -91,12 +91,26 @@ class EditorModel:
 
     def receive(self, inspection: Inspection, *, discard: bool = False) -> None:
         changed = fingerprint(inspection.monitors) != self._fingerprint
-        if self.dirty and not discard:
+        observed = draft_layout(inspection.monitors)
+        if self.dirty and not discard and self.draft is not None and self.observed is not None:
+            if changed:
+                # Retain edited rows and missing outputs, while exposing new
+                # connectors and refreshing untouched fields from discovery.
+                old = {o.name: o for o in self.observed.outputs}
+                fresh = {o.name: o for o in observed.outputs}
+                names = {o.name for o in self.draft.outputs}
+                self.draft = Layout(
+                    tuple(
+                        fresh.get(o.name, o) if old.get(o.name) == o else o
+                        for o in self.draft.outputs
+                    )
+                    + tuple(o for o in observed.outputs if o.name not in names)
+                )
             self.stale = self.stale or changed
         else:
-            self.draft = draft_layout(inspection.monitors)
-            self.observed = self.draft
+            self.draft = observed
             self.stale = False
+        self.observed = observed
         self.inspection = inspection
         self._fingerprint = fingerprint(inspection.monitors)
         names = {o.name for o in self.draft.outputs} if self.draft else set()

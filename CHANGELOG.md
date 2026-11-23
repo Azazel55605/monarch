@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0rc8
+
+- Newly connected displays appear in the editor even while a layout draft is open.
+  Existing edits remain available for review after discovery changes.
+- An automatic profile preview delayed by a busy editor can retry once it settles.
+  An explicit Revert still suppresses the same proposal.
+- Manual profile switches use a fresh topology snapshot for guarded recovery, and
+  guard setup errors report the specific reason when available.
+- The watcher polls discovery as a fallback even when switching is disabled.
+
 ## 0.1.0rc7
 
 - Manual layout edits pause automation for the current monitor setup. Connecting

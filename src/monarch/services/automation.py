@@ -262,6 +262,12 @@ class Automation:
             "profiles_digest": self.profiles_digest,
         }
 
+    def defer_offer(self) -> None:
+        if self.attempt["outcome"] == "offered":
+            self.attempt["outcome"] = ""
+            self.stable_key = ""
+            self.save_attempt()
+
     def finish(self, result: dict[str, Any], *, now: float | None = None) -> None:
         now = time.monotonic() if now is None else now
         if result.get("state") == "kept":

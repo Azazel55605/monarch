@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: Monarch version and installation source
-      placeholder: "0.1.0rc7, native Arch package / isolated wheel / checkout"
+      placeholder: "0.1.0rc8, native Arch package / isolated wheel / checkout"
     validations:
       required: true
   - type: textarea
