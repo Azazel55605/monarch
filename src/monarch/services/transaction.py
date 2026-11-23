@@ -30,6 +30,7 @@ class Transaction:
         self.token = token
         self.record: dict[str, Any] | None = None
         self.pending = False
+        self.authorize: Callable[[], None] | None = None
 
     def save(self, status: str, reason: str = "") -> None:
         assert self.record is not None
@@ -51,7 +52,13 @@ class Transaction:
             )
 
     async def prepare(
-        self, managed: Managed, desired: Layout, active_config: Path | None, seconds: float
+        self,
+        managed: Managed,
+        desired: Layout,
+        active_config: Path | None,
+        seconds: float,
+        *,
+        allow_topology_rebase: bool = False,
     ) -> None:
         previous = self.paths.status()
         if previous and previous.get("status") not in TERMINAL:
@@ -78,6 +85,12 @@ class Transaction:
                 confirmed = Layout.parse(known["layout"])
                 if confirmed.matches(monitors):
                     baseline = confirmed
+        saved_set = {(o.name, o.make, o.model, o.serial) for o in baseline.outputs}
+        connected_set = {(m.name, m.make, m.model, m.serial) for m in monitors}
+        if allow_topology_rebase and saved_set != connected_set:
+            # Explicit automation ownership permits only topology-driven basic
+            # snapshots, never adoption of unexplained drift on the same set.
+            baseline = Layout.capture(monitors)
         baseline.validate(monitors)
         if not baseline.matches(monitors):
             raise MonarchError(
@@ -105,6 +118,8 @@ class Transaction:
     async def set_layout(self, layout: Layout) -> None:
         for output in ordered(layout):
             self.check_session()
+            if self.authorize is not None and self.record and self.record["status"] != "recovering":
+                self.authorize()
             assert self.record is not None
             self.managed.check(self.record["disk_digest"])
             layout.validate(await self.backend.observe())
@@ -140,6 +155,8 @@ class Transaction:
             await asyncio.sleep(0.1)
 
     async def apply(self) -> None:
+        if self.authorize is not None:
+            self.authorize()
         assert self.record is not None
         self.check_session()
         self.managed.check(self.record["disk_digest"])
@@ -158,6 +175,8 @@ class Transaction:
         self.pending = True
 
     async def check_pending(self) -> None:
+        if self.authorize is not None:
+            self.authorize()
         assert self.record is not None
         self.check_session()
         self.managed.check(self.record["disk_digest"])

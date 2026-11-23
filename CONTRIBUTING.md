@@ -63,3 +63,9 @@ compositor. Catalog tests must cover unknown/future schema preservation, private
 storage and import conflicts; matching tests must never rely on connector equality
 to distinguish physically identical displays. Keep Qt offscreen, nested Wayland
 and physical-device evidence separate.
+
+Phase 5 uses `tools/probe_automation.py` for virtual hotplug and real automatic
+confirmation. Virtual outputs require explicit saved-port bindings because their
+hardware identity fields are empty; do not weaken physical ambiguity checks to
+make fixtures pass. Autostart tests use temporary XDG roots and must not install a
+host entry. Record physical docking/resume/login acceptance separately.

@@ -1,6 +1,7 @@
 """Persistent asyncio worker thread; Qt's main thread never waits on compositor I/O."""
 
 import asyncio
+import time
 from concurrent.futures import Future
 from dataclasses import replace
 from pathlib import Path
@@ -10,19 +11,27 @@ from PySide6.QtCore import QThread, Signal
 
 from monarch.backends.hyprland.commands import Hyprctl
 from monarch.backends.hyprland.events import EventWatcher
-from monarch.backends.hyprland.inspector import Inspector
+from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
+from monarch.domain.policy import Policy
 from monarch.domain.profiles import MappingRequired, resolve
 from monarch.errors import MonarchError
+from monarch.services.automation import Automation
 from monarch.services.coordinator import Coordinator, Preview
 from monarch.services.state import TERMINAL
+from monarch.storage.automation import Autostart, PolicyStore, control, pin
 from monarch.storage.integration import IntegrationPlan
 from monarch.storage.managed import Managed
 from monarch.storage.profiles import ProfileStore, config_home
 
 
 class BackendThread(QThread):
+    automation_state = Signal(object)
+    automation_settings = Signal(object, bool)
+    automation_offer = Signal(object, object)
+    automation_saved = Signal()
+    automation_failed = Signal(str)
     observed = Signal(object)
     failed = Signal(str)
     pending = Signal(float)
@@ -57,7 +66,13 @@ class BackendThread(QThread):
         self._tasks: set[asyncio.Task[Any]] = set()
         self._plan: IntegrationPlan | None = None
         self._plan_layout: Layout | None = None
+        self.automation: Automation | None = None
+        self.ui_idle = False
+        self.management_ready = False
+        self.auto_authorization: dict[str, str] | None = None
+        self.automatic_preview = False
         self.profile_store = ProfileStore(config_home(env))
+        self.latest_inspection: Inspection | None = None
         self.inspector: Inspector | None = None
         self.coordinator: Coordinator | None = None
 
@@ -82,6 +97,13 @@ class BackendThread(QThread):
                 self.profiles.emit(self.profile_store.list())
             except (MonarchError, OSError) as exc:
                 self.profile_failed.emit(str(exc))
+            try:
+                self.automation = Automation(self.coordinator, self.profile_store)
+            except (MonarchError, OSError) as exc:
+                self.automation_state.emit({"reason": str(exc), "pinned": False})
+            else:
+                timer = asyncio.create_task(self._automatic_loop())
+                self._tasks.add(timer)
             self._ready = True
             task = asyncio.create_task(self._watch())
             self._tasks.add(task)
@@ -96,6 +118,8 @@ class BackendThread(QThread):
             for task in self._tasks:
                 task.cancel()
             await asyncio.gather(*self._tasks, return_exceptions=True)
+            if self.automation is not None:
+                self.automation.close()
             self.loop = None
 
     def submit(self, operation: str, *args: object) -> None:
@@ -104,7 +128,32 @@ class BackendThread(QThread):
 
         async def dispatch() -> None:
             try:
-                if operation == "profile":
+                if operation == "ui-state":
+                    self.ui_idle = bool(args[0])
+                    if (
+                        len(args) > 1
+                        and args[1]
+                        and not self.automatic_preview
+                        and self.coordinator
+                    ):
+                        if not control(self.coordinator.paths)["pinned"]:
+                            pin(self.coordinator.paths)
+                elif operation in {
+                    "automation-settings",
+                    "automation-save",
+                    "automation-resume",
+                    "automation-pin",
+                }:
+                    try:
+                        self._automation_action(operation, *args)
+                    except (MonarchError, OSError, ValueError) as exc:
+                        self.automation_failed.emit(str(exc))
+                elif operation == "automatic-preview":
+                    await self._automatic_preview(*args)
+                elif operation == "automatic-decline":
+                    if self.automation:
+                        self.automation.finish({"reason": "user_revert"})
+                elif operation == "profile":
                     try:
                         await self._profile(*args)
                     except (MonarchError, OSError, ValueError) as exc:
@@ -124,7 +173,10 @@ class BackendThread(QThread):
                     self.completed.emit(await self.coordinator.recover())
                     await self._refresh()
             except (MonarchError, OSError, ValueError) as exc:
+                if operation == "automatic-preview":
+                    self.completed.emit({"state": "failed", "automatic": True})
                 self.failed.emit(str(exc))
+                await self._refresh()
 
         future = asyncio.run_coroutine_threadsafe(dispatch(), self.loop)
         future.add_done_callback(self._report_future)
@@ -135,7 +187,9 @@ class BackendThread(QThread):
 
     async def _watch(self) -> None:
         assert self.session is not None
-        async for _ in EventWatcher(self.session).invalidations():
+        async for reason in EventWatcher(self.session).invalidations():
+            if reason in {"connected", "disconnected"} and self.automation is not None:
+                self.automation.stable_key = ""
             if self.handle is None and not self.previewing:
                 try:
                     await self._refresh()
@@ -146,6 +200,7 @@ class BackendThread(QThread):
         if self.inspector is None or self.handle is not None or self.previewing:
             return
         inspection = await self.inspector.inspect()
+        self.latest_inspection = inspection
         if self.directory is None and inspection.config.path:
             candidate = inspection.config.path.parent / "monarch"
             if (candidate / "integration.json").is_file():
@@ -184,6 +239,7 @@ class BackendThread(QThread):
                 reason = "Monitor management is ready."
             except (MonarchError, OSError) as exc:
                 reason = str(exc)
+        self.management_ready = ready
         self.ownership.emit({"ready": ready, "reason": reason, "directory": self.directory})
         self.observed.emit(inspection)
 
@@ -199,13 +255,24 @@ class BackendThread(QThread):
         assert self.coordinator is not None
         self.previewing = True
         try:
-            self.handle = await self.coordinator.preview(Managed(self.directory), layout)
+            self.handle = await self.coordinator.preview(
+                Managed(self.directory),
+                layout,
+                automation=self.auto_authorization if self.automatic_preview else None,
+            )
             self.pending.emit(self.handle.deadline)
             result = await self.handle.wait()
         finally:
             self.handle = None
             self.previewing = False
-        self.completed.emit(result)
+        if self.automatic_preview and self.automation:
+            self.automation.finish(result)
+            self.automation_state.emit(
+                self.automation.status(
+                    f"Automatic preview {result['state']}.", now=time.monotonic()
+                )
+            )
+        self.completed.emit(dict(result, automatic=self.automatic_preview))
         await self._refresh()
 
     async def _decide(self, *args: object) -> None:
@@ -264,6 +331,8 @@ class BackendThread(QThread):
             raise MonarchError("Wait for the active preview before using profiles.")
         store = self.profile_store
         key = str(payload.get("key", ""))
+        if operation in {"load", "switch"} and self.coordinator:
+            pin(self.coordinator.paths)
         if operation in {"load", "switch", "capture"}:
             assert self.inspector is not None
             inspection = await self.inspector.inspect()
@@ -308,6 +377,92 @@ class BackendThread(QThread):
             self.profile_notice.emit(
                 "Profile operation completed. Saving profiles does not apply settings."
             )
+
+    def _automation_action(self, operation: str, *args: object) -> None:
+        store = PolicyStore(self.profile_store.directory)
+        autostart = Autostart(config_home(self.env))
+        if operation == "automation-settings":
+            settings_policy = store.read()
+            try:
+                registered_login = autostart.active()
+            except (MonarchError, OSError) as exc:
+                self.automation_settings.emit(settings_policy, False)
+                self.automation_failed.emit(str(exc))
+            else:
+                self.automation_settings.emit(settings_policy, registered_login)
+        elif operation == "automation-save":
+            policy, login = args
+            assert isinstance(policy, Policy) and isinstance(login, bool)
+            # Validate both actions before treating the editor as saved. Policy
+            # disable/revision invalidation also revokes a running auto guard.
+            Policy.parse(policy.to_dict())
+            if not policy.enabled:
+                store.write(policy)
+            autostart.set(login, profiles_directory=self.profile_store.directory)
+            if policy.enabled:
+                store.write(policy)
+            self.automation_saved.emit()
+        else:
+            assert self.coordinator is not None
+            pin(self.coordinator.paths, operation == "automation-pin")
+
+    async def _automatic_loop(self) -> None:
+        assert self.automation is not None and self.inspector is not None
+        previous_wall = time.time()
+        while True:
+            try:
+                wall = time.time()
+                if abs(wall - previous_wall) > 5:
+                    self.automation.stable_key = ""
+                previous_wall = wall
+                if not self.previewing and self.handle is None:
+                    enabled = self.automation.store.read().enabled
+                    inspection = (
+                        (await self.inspector.inspect())
+                        if enabled or self.latest_inspection is None
+                        else self.latest_inspection
+                    )
+                    if inspection != self.latest_inspection:
+                        self.latest_inspection = inspection
+                        self.observed.emit(inspection)
+                    status, offer = self.automation.evaluate(
+                        inspection, idle=self.ui_idle, ready=self.management_ready
+                    )
+                    self.automation_state.emit(status)
+                    if offer is not None and offer.layout is not None:
+                        self.observed.emit(inspection)
+                        self.automation_offer.emit(offer.layout, self.automation.authorize())
+                elif self.automation.owner is not None:
+                    self.automation_state.emit(
+                        self.automation.status(
+                            "Automatic preview pending confirmation."
+                            if self.automatic_preview
+                            else "Waiting for the active manual transaction.",
+                            now=time.monotonic(),
+                        )
+                    )
+            except (MonarchError, OSError, ValueError) as exc:
+                self.automation.stable_key = ""
+                self.automation_state.emit({"reason": str(exc), "pinned": False})
+            await asyncio.sleep(1)
+
+    async def _automatic_preview(self, *args: object) -> None:
+        assert self.automation is not None
+        self.automatic_preview = True
+        try:
+            authorization = args[1]
+            if not isinstance(authorization, dict) or authorization != self.automation.authorize():
+                raise MonarchError(
+                    "Automatic selection changed before preview; waiting for fresh policy."
+                )
+            self.auto_authorization = authorization
+            await self._preview(args[0])
+        except (MonarchError, OSError, ValueError):
+            self.automation.finish({"state": "failed"})
+            raise
+        finally:
+            self.auto_authorization = None
+            self.automatic_preview = False
 
     def shutdown(self) -> None:
         self.closing = True

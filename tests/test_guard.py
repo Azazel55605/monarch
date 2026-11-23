@@ -42,7 +42,10 @@ def guard_setup(tmp_path, monitors):
     fake.write_text("#!/usr/bin/env python\n" + source)
     fake.chmod(0o700)
     env = dict(
-        os.environ, MONARCH_FAKE_STATE=str(state), PYTHONPATH=str(Path(__file__).parents[1] / "src")
+        os.environ,
+        XDG_CONFIG_HOME=str(tmp_path / "config"),
+        MONARCH_FAKE_STATE=str(state),
+        PYTHONPATH=str(Path(__file__).parents[1] / "src"),
     )
     coordinator = Coordinator(session, state_home=tmp_path / "state", executable=str(fake), env=env)
     desired = Layout((replace(layout.outputs[0], scale=2, x=-1280), layout.outputs[1]))

@@ -2,7 +2,8 @@
 
 Status: Phase 4 adds versioned profiles, explicit physical identity mapping,
 guarded GUI/tray/CLI switching and native Qt appearance to the existing editor.
-Automatic switching remains planned. See the [profile guide](phase-4-guide.md),
+Phase 5 adds opt-in policy previews and login lifecycle; physical acceptance is
+open. See the [automation contract](phase-5-guide.md), [profile guide](phase-4-guide.md),
 [Phase 3 behavior](phase-3-guide.md), [evidence](phase-3-report.md),
 and the historical [Phase 2 behavior](phase-2-guide.md),
 [evidence](phase-2-report.md), [research](compatibility.md), and the
@@ -157,8 +158,8 @@ data, never commands or Lua snippets.
 ## Profiles and quick switching
 
 Profiles contain a stable UUID, a unique name and a concrete layout snapshot.
-The current policy requires an exact physical output set and advertised modes;
-matching policies/priorities for automation remain Phase 5. Schema-1 interchange
+Manual profile switches require an exact physical set and advertised modes;
+automatic rules can explicitly select subsets while preserving extras. Schema-1 interchange
 migrates on the next successful edit. Future schemas remain unchanged. See the
 [profile guide](phase-4-guide.md) for the schema and confirmation contract.
 
@@ -167,8 +168,8 @@ Keybinding switches open visible Qt confirmation; `--terminal` requires a real T
 and typed Keep. Tray actions also open the editor and clear persistence. Every
 apply goes through the existing independent guard and per-session lock. Unknown
 runtime baselines after topology changes still require integration re-review.
-A profile resolver cannot bypass recovery ownership. Watch/cycle/autostart are
-not implemented; automatic selection remains opt-in future work.
+A profile resolver cannot bypass recovery ownership. Cycle remains unimplemented.
+Phase 5 adds opt-in automatic previews and explicit XDG autostart; physical dock/resume/fresh-login acceptance remains open.
 
 ## Automatic matching
 
@@ -212,3 +213,22 @@ Appearance uses the Qt platform theme and QStyleFactory rather than a global
 stylesheet/palette. Same-major/minor system plugin trees augment wheel discovery;
 Qt validates individual plugins. Optional tray actions surface visible GUI
 confirmation and never imply Keep or save-on-login. Closing exits the tray too.
+
+## Implemented automatic preview lifecycle
+
+The Qt worker hosts the event watcher and authoritative polling. A private
+session lock elects one enabled automatic owner. Pure rules select by priority,
+exactness and specificity; ties/no match preserve state. Subset rules retain extras.
+Explicit saved-port bindings are separate from default physical identity matching.
+Session runtime controls carry a manual pin/generation, durable attempt history
+and heartbeat. Manual edits and all manual coordinator clients revoke auto control.
+Automatic guards pin both the policy and catalog revision and never persist.
+Only authorized topology changes can capture a new basic recovery baseline;
+same-set unexplained drift remains refused. A revoked permit cancels apply but
+never blocks recovery. UI offers retain their original authorization snapshot.
+
+The XDG desktop entry is opt-in, receipt/hash protected and points to the current
+interpreter/catalog. It launches a minimized Qt/tray confirmation surface, not an
+unattended auto-confirm daemon. Plain Hyprland needs a session autostart host or
+an explicit existing-session launcher. Physical dock/resume/login acceptance is
+separate from the implemented software and native virtual-output checks.

@@ -23,6 +23,7 @@ def launch(
     profile: str = "",
     persist: bool = False,
     tray: bool = False,
+    background: bool = False,
     profile_directory: Path | None = None,
 ) -> int:
     if os.environ.get("WAYLAND_DISPLAY"):
@@ -47,7 +48,7 @@ def launch(
     )
     if theme.warning:
         window.notice = theme.warning
-    window.show()
+    window.showMinimized() if background else window.show()
     worker.start()
     result = app.exec()
     worker.shutdown()

@@ -18,7 +18,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | 2 — Apply and recovery | Done | [Phase 2 evidence](phase-2-report.md); guarded CLI and native nested recovery matrix |
 | 3 — Qt manual editor | Done | [Phase 3 evidence](phase-3-report.md); Qt tests, native fractional-scale GUI and read-only physical startup |
 | 4 — Profiles/quick switch | Done | [Phase 4 evidence](phase-4-report.md) |
-| 5 — Automatic switching | Planned | None |
+| 5 — Automatic switching | In progress | [Software and virtual-hotplug evidence](phase-5-report.md); physical dock/resume/login gate open |
 | 6 — Advanced settings | Planned | None |
 | 7 — Packaging/release | Planned | None |
 
@@ -47,9 +47,9 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M4.1 | Versioned profile CRUD, migration, import/export | Done | [Catalog](../src/monarch/storage/profiles.py), [tests](../tests/test_profiles.py) |
 | M4.2 | Stable identity mapping and missing/ambiguous outputs | Done | [Resolver](../src/monarch/domain/profiles.py), [explicit mapping UI](../src/monarch/ui/profiles.py) |
 | M4.3 | GUI/tray quick switching and CLI/keybinding interface | Done | [Guide](phase-4-guide.md), [native probe](../tools/probe_profiles.py), shared guard and PTY tests |
-| M5.1 | Policy matching, priority, ambiguity and manual pin | Planned | Deterministic topology matrix |
-| M5.2 | Watcher, debounce, backoff and feedback suppression | Planned | Reconnect, storms, no match and failure tests |
-| M5.3 | Opt-in autostart and native dock/resume acceptance | Planned | Enable/disable lifecycle and real-session report |
+| M5.1 | Policy matching, priority, ambiguity and manual pin | Done | [Policy](../src/monarch/domain/policy.py), [matching tests](../tests/test_policy.py), shared session overrides |
+| M5.2 | Watcher, debounce, backoff and feedback suppression | Done | [Engine](../src/monarch/services/automation.py), [fault/timing tests](../tests/test_automation.py), [native virtual hotplug](phase-5-report.md) |
+| M5.3 | Opt-in autostart and native dock/resume acceptance | In progress | [Autostart controls](../src/monarch/storage/automation.py) and virtual lifecycle pass; physical dock/resume/fresh-login acceptance pending |
 | M6.1 | Capability-gated advanced controls and recovery | Planned | Per-option hardware evidence or explicit deferral |
 | M6.2 | Compatibility policy and scope decisions | Planned | Legacy/modeline decisions; tested release matrix |
 | M6.3 | Redacted diagnostics and error/help polish | Planned | Useful report without default identifiers/config leakage |
@@ -59,10 +59,18 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Start Phase 5: opt-in topology matching, priority/ambiguity policy, debounce,
-manual overrides, backoff and session lifecycle. Profiles and themes are available.
-Physical modesetting and the broader release matrix remain open; native virtual
-disable/re-enable cycling has an unresolved timeout recorded in the Phase 4 report.
+Complete the Phase 5 physical dock/resume/fresh-login gate on a reviewed basic
+monitor configuration. Software is implemented and opt-in; no host settings were
+enabled or changed during implementation. See the [guide](phase-5-guide.md) and
+[report](phase-5-report.md). Phase 6 advanced controls remain planned.
+
+## Phase 5 checks
+
+See the [Phase 5 report](phase-5-report.md): automated policy/guard/Qt/lifecycle
+checks plus real virtual dock/undock, automatic Keep/Revert, topology-snapshot
+recovery and shared manual pin/resume. Physical hardware and fresh-login acceptance
+remain separate open gates. Default matching refuses ambiguous identities;
+explicit saved-port rules require fixed cabling.
 
 ## Phase 4 checks
 

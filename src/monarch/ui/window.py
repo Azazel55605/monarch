@@ -31,8 +31,10 @@ from PySide6.QtWidgets import (
 from monarch.backends.hyprland.inspector import Inspection
 from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
+from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
 from monarch.errors import MonarchError
+from monarch.ui.automation import AutomationDialog
 from monarch.ui.canvas import LayoutCanvas
 from monarch.ui.dialogs import ConfirmationDialog, IntegrationDialog
 from monarch.ui.identify import Identification
@@ -62,6 +64,7 @@ class MainWindow(QMainWindow):
         self.model = EditorModel()
         self.backend = backend
         self.quit_on_close = quit_on_close
+        self.automation_dialog: AutomationDialog | None = None
         self.startup_profile = startup_profile
         self._profile_loading = False
         self._requested_profile = ""
@@ -104,6 +107,23 @@ class MainWindow(QMainWindow):
         self.profile_bar.request.connect(self.profile_request)
         self.profile_bar.load.connect(self.load_profile)
         outer.addWidget(self.profile_bar)
+        automatic_row = QHBoxLayout()
+        self.automatic_status = QLabel("Automatic switching is disabled.")
+        self.automatic_status.setWordWrap(True)
+        self.automatic_status.setAccessibleName("Automatic profile switching status")
+        automatic_row.addWidget(self.automatic_status, 1)
+        self.automatic_button = QPushButton("Automation…")
+        self.automatic_button.clicked.connect(
+            lambda: self.backend.submit("automation-settings") if self.backend else None
+        )
+        automatic_row.addWidget(self.automatic_button)
+        self.resume_automatic = QPushButton("Resume automatic switching")
+        self.resume_automatic.clicked.connect(
+            lambda: self.backend.submit("automation-resume") if self.backend else None
+        )
+        self.resume_automatic.setVisible(False)
+        automatic_row.addWidget(self.resume_automatic)
+        outer.addLayout(automatic_row)
         self.tray: QSystemTrayIcon | None = None
         self.tray_menu: QMenu | None = None
         if tray_enabled:
@@ -244,6 +264,9 @@ class MainWindow(QMainWindow):
         self.apply.clicked.connect(self.start_preview)
         row.addWidget(self.apply)
         outer.addLayout(row)
+        self.canvas.editing.connect(
+            lambda: self.backend.submit("automation-pin") if self.backend else None
+        )
         self.canvas.selected.connect(self.select_display)
         self.canvas.moved.connect(self.position_changed, Qt.ConnectionType.QueuedConnection)
         self.displays.currentRowChanged.connect(self.row_selected)
@@ -258,6 +281,11 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Escape"), self, self.identification.close)
         QShortcut(QKeySequence("Ctrl+R"), self, self.refresh)
         if backend:
+            backend.automation_state.connect(self.automation_status)
+            backend.automation_settings.connect(self.automation_settings)
+            backend.automation_offer.connect(self.automatic_offer)
+            backend.automation_saved.connect(self.automation_saved)
+            backend.automation_failed.connect(self.automation_error)
             backend.profiles.connect(self.receive_profiles)
             backend.profile_loaded.connect(self.profile_loaded)
             backend.profile_mapping.connect(self.profile_mapping)
@@ -312,6 +340,12 @@ class MainWindow(QMainWindow):
         self.loading = False
         self.load_properties()
         self.update_status()
+        if self.backend:
+            self.backend.submit(
+                "ui-state",
+                not self.model.busy and not self.model.dirty and not self._profile_loading,
+                self.model.dirty and not self.model.busy and not self._discard_next,
+            )
 
     def load_properties(self) -> None:
         self.loading = True
@@ -451,6 +485,7 @@ class MainWindow(QMainWindow):
             self.model.stale and not self.model.busy and not self._profile_loading
         )
         for button in (
+            self.automatic_button,
             self.setup_button,
             self.refresh_button,
             self.identify_button,
@@ -462,6 +497,55 @@ class MainWindow(QMainWindow):
             "recovery" in self.ownership_reason.lower()
             or "unfinished" in self.ownership_reason.lower()
         )
+
+    def automation_status(self, state: dict[str, Any]) -> None:
+        self.automatic_status.setText(state["reason"])
+        self.automatic_status.setToolTip("\n".join(state.get("rejected", [])))
+        self.resume_automatic.setVisible(bool(state.get("pinned")))
+
+    def automation_settings(self, policy: Policy, autostart: bool) -> None:
+        dialog = AutomationDialog(policy, self.profile_bar.profiles, autostart, self)
+        if self.backend:
+            dialog.saved.connect(
+                lambda policy, login: self.backend.submit("automation-save", policy, login)
+            )
+        self.automation_dialog = dialog
+        dialog.show()
+
+    def automation_error(self, message: str) -> None:
+        if self.automation_dialog:
+            self.automation_dialog.error.setText(message)
+        self.profile_message(message)
+
+    def automation_saved(self) -> None:
+        if self.automation_dialog:
+            self.automation_dialog.accept()
+            self.automation_dialog = None
+        self.profile_message(
+            "Automatic switching settings saved. Every preview still requires Keep."
+        )
+
+    def automatic_offer(self, layout: Layout, authorization: dict[str, str] | None = None) -> None:
+        if (
+            self.model.busy
+            or self.model.dirty
+            or self._profile_loading
+            or not self.ready
+            or QApplication.activeModalWidget() is not None
+            or QApplication.mouseButtons() != Qt.MouseButton.NoButton
+        ):
+            if self.backend:
+                self.backend.submit("automatic-decline")
+            return
+        self.show_editor()
+        self.persist.setChecked(False)
+        self.model.draft = layout
+        self.model.stale = False
+        self.model.busy = True
+        self._persist = False
+        self.render_state()
+        if self.backend:
+            self.backend.submit("automatic-preview", layout, authorization)
 
     def profile_message(self, message: str) -> None:
         self.notice = message
@@ -487,6 +571,14 @@ class MainWindow(QMainWindow):
         for profile in profiles:
             self.tray_menu.addAction(profile.name, partial(self.tray_switch, profile.id))
         self.tray_menu.addSeparator()
+        self.tray_menu.addAction(
+            "Pause automatic switching for this session",
+            lambda: self.backend.submit("automation-pin") if self.backend else None,
+        )
+        self.tray_menu.addAction(
+            "Resume automatic switching",
+            lambda: self.backend.submit("automation-resume") if self.backend else None,
+        )
         self.tray_menu.addAction("Quit Monarch", self.close)
 
     def show_editor(self) -> None:
@@ -645,6 +737,8 @@ class MainWindow(QMainWindow):
             self.confirmation.finish()
             self.confirmation = None
         self.model.busy = False
+        if result.get("automatic"):
+            self._discard_next = True
         if result["state"] == "kept":
             self._discard_next = True
             self.ownership_reason = (
@@ -663,6 +757,7 @@ class MainWindow(QMainWindow):
         self.render_state()
 
     def show_error(self, message: str) -> None:
+        self.notice = message
         self.model.busy = False
         if self.confirmation:
             self.confirmation.finish()

@@ -16,6 +16,7 @@ from monarch.backends.hyprland.events import EventWatcher
 from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.errors import MonarchError
+from monarch.services.automation_cli import add_automation_commands, execute_automation
 from monarch.services.cli import add_commands, execute
 from monarch.services.profiles import add_profile_commands, execute_profile
 
@@ -162,6 +163,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     gui.add_argument("--tray", action="store_true", help="Show an optional profile tray menu")
     add_commands(commands)
     add_profile_commands(commands)
+    add_automation_commands(commands)
     args = parser.parse_args(argv)
     if (
         args.command == "profile"
@@ -170,12 +172,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         and (args.map or args.seconds != 15)
     ):
         parser.error("--map and --seconds require --terminal; GUI switches offer a mapping dialog.")
-    if args.command == "gui" or (
-        args.command == "profile" and args.profile_action == "switch" and not args.terminal
+    if (
+        (args.command == "automation" and args.automation_action == "run")
+        or args.command == "gui"
+        or (args.command == "profile" and args.profile_action == "switch" and not args.terminal)
     ):
         try:
             from monarch.ui.app import launch
 
+            if args.command == "automation":
+                Session.from_environment()  # Login entries exit without Qt outside Hyprland.
+                return launch(tray=True, background=True, profile_directory=args.store)
             if args.command == "profile":
                 # Resolve the profile before opening a window. The worker will
                 # resolve it again against live topology before preview.
@@ -201,6 +208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 2
     try:
+        if args.command == "automation":
+            return execute_automation(args)
         return asyncio.run(
             inspect_command(args)
             if args.command == "inspect"

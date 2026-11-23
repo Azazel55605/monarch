@@ -1,5 +1,7 @@
 # Profiles, quick switching and Qt appearance
 
+Phase 4 reference. Opt-in matching is now described in the [Phase 5 guide](phase-5-guide.md).
+
 Run the editor with `uv run --extra gui monarch gui`. Profiles are data snapshots;
 saving, renaming, importing, deleting or loading one into the editor does not apply
 monitor settings. Automatic topology selection remains Phase 5.

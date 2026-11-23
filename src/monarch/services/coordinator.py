@@ -12,7 +12,7 @@ from typing import Any
 from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
 from monarch.errors import MonarchError
-from monarch.services.state import Paths
+from monarch.services.state import TERMINAL, Paths
 from monarch.storage.files import write_json
 from monarch.storage.managed import Managed
 
@@ -118,16 +118,35 @@ class Coordinator:
             raise MonarchError("Could not start the independent recovery guard.") from exc
         return Preview(process)
 
-    async def preview(self, managed: Managed, layout: Layout, *, seconds: float = 15) -> Preview:
+    async def preview(
+        self,
+        managed: Managed,
+        layout: Layout,
+        *,
+        seconds: float = 15,
+        automation: dict[str, str] | None = None,
+    ) -> Preview:
         Layout.parse(layout.to_dict())
         if not 1 <= seconds <= 60:
             raise MonarchError("Preview duration must be between 1 and 60 seconds.")
+        if automation is None:
+            from monarch.storage.automation import pin
+
+            pin(self.paths)
+            # Revocation is visible to the active automatic guard. Wait only for
+            # automatic recovery, never steal a manual transaction's lock.
+            for _ in range(100):
+                active = self.paths.status()
+                if not active or not active.get("automation") or active.get("status") in TERMINAL:
+                    break
+                await asyncio.sleep(0.1)
         handle = await self.launch(
             {
                 "action": "preview",
                 "root": str(managed.directory),
                 "layout": layout.to_dict(),
                 "seconds": seconds,
+                "automation": automation,
             }
         )
         try:

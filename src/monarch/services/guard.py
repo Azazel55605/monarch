@@ -67,11 +67,15 @@ async def controlled(transaction: Transaction, seconds: float) -> None:
         message = await action
         if message["action"] == "revert":
             raise MonarchError("user_revert")
+        if transaction.authorize is not None and message["persist"]:
+            raise MonarchError("Automatic previews cannot persist configuration.")
         await transaction.keep(message["persist"])
 
     async def monitor() -> None:
         while True:
             await asyncio.sleep(0.4)
+            if transaction.authorize is not None:
+                transaction.authorize()
             if transaction.pending:
                 await transaction.check_pending()
 
@@ -163,12 +167,47 @@ async def run(request_path: Path) -> int:
             seconds = request["seconds"]
             if type(seconds) not in (int, float) or not 1 <= seconds <= 60:
                 raise MonarchError("Preview duration must be between 1 and 60 seconds.")
+            authorization = request.get("automation")
+            if authorization is not None:
+                from monarch.storage.automation import permit
+
+                if (
+                    not isinstance(authorization, dict)
+                    or set(authorization)
+                    != {
+                        "generation",
+                        "policy_path",
+                        "policy_digest",
+                        "profiles_path",
+                        "profiles_digest",
+                    }
+                    or not all(isinstance(v, str) for v in authorization.values())
+                ):
+                    raise MonarchError("Invalid automatic preview authorization.")
+                transaction.authorize = lambda: permit(
+                    paths,
+                    authorization["generation"],
+                    Path(authorization["policy_path"]),
+                    authorization["policy_digest"],
+                    Path(authorization["profiles_path"]),
+                    authorization["profiles_digest"],
+                )
+                transaction.authorize()
             managed = Managed(Path(request["root"]))
             location = config_location(session, resolve_xdg=allow_xdg)
             active = location.path if location.verified else None
             async with asyncio.timeout(20):
-                await transaction.prepare(managed, Layout.parse(request["layout"]), active, seconds)
+                await transaction.prepare(
+                    managed,
+                    Layout.parse(request["layout"]),
+                    active,
+                    seconds,
+                    allow_topology_rebase=authorization is not None,
+                )
             assert transaction.record is not None
+            if authorization is not None:
+                transaction.record["automation"] = authorization
+                transaction.save("armed")
             notify("armed", id=transaction.record["id"])
             await controlled(transaction, seconds)
         assert transaction.record is not None

@@ -481,3 +481,139 @@ def test_profile_menu_captures_observed_and_draft_separately(
         widget._closing = True
         widget.close()
         qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+
+
+def test_automation_rule_dialog_and_opt_in_default(qtbot, inspection):
+    from monarch.domain.policy import Policy
+    from monarch.domain.profiles import Profile
+    from monarch.ui.automation import AutomationDialog
+
+    profile = Profile("a" * 32, "Desk", editor_layout(inspection))
+    dialog = AutomationDialog(Policy(), (profile,), False)
+    qtbot.addWidget(dialog)
+    assert not dialog.enabled.isChecked() and not dialog.autostart.isChecked()
+    captured = []
+    dialog.saved.connect(lambda policy, startup: captured.append((policy, startup)))
+    identifier, enabled, mode, priority, ports = dialog.rows[0]
+    enabled.setChecked(True)
+    mode.setCurrentText("subset")
+    priority.setValue(10)
+    dialog.enabled.setChecked(True)
+    dialog.submit()
+    assert captured[0][0].enabled
+    assert captured[0][0].rules[0].mode == "subset"
+    assert captured[0][0].rules[0].priority == 10
+    assert not captured[0][1]
+
+
+def test_automatic_offer_never_persists_and_dirty_edit_is_preserved(window):
+    from monarch.domain.layout import Layout
+
+    layout = Layout(tuple(replace(o, x=o.x - 100) for o in window.model.draft.outputs))
+    window.persist.setChecked(True)
+    window.automatic_offer(layout)
+    assert window.model.busy
+    assert not window._persist and not window.persist.isChecked()
+    window.model.busy = False
+    window.model.update(window.model.selected, x=-500)
+    draft = window.model.draft
+    window.automatic_offer(layout)
+    assert window.model.draft == draft and not window.model.busy
+
+
+def test_automation_worker_shows_confirmation_then_decline_does_not_loop(
+    qtbot, guard_setup, tmp_path
+):
+    from monarch.domain.policy import Policy, Rule
+    from monarch.storage.automation import PolicyStore
+    from monarch.storage.profiles import ProfileStore
+    from monarch.ui.worker import BackendThread
+
+    coordinator, store, baseline, desired, state = guard_setup
+    profiles = ProfileStore(tmp_path / "profiles")
+    profile = profiles.save("Desk", desired)
+    PolicyStore(profiles.directory).write(Policy(True, (Rule(profile.id),)))
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    worker.profile_store = profiles
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    completed = []
+    worker.completed.connect(completed.append)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=12000)
+        assert not widget._persist
+        widget.confirmation.choose(False)
+        qtbot.waitUntil(
+            lambda: bool(completed) and not widget.model.busy and not widget.model.dirty,
+            timeout=12000,
+        )
+        assert completed[-1]["automatic"] and completed[-1]["state"] == "reverted"
+        qtbot.wait(2500)
+        assert widget.confirmation is None and len(completed) == 1
+        assert worker.automation.attempt["outcome"] == "declined"
+    finally:
+        widget._closing = True
+        widget.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+
+
+def test_unchanged_automatic_polling_preserves_canvas_items(
+    qtbot, guard_setup, tmp_path, monkeypatch
+):
+    import asyncio
+
+    import monarch.ui.worker as worker_module
+    from monarch.domain.policy import Policy, Rule
+    from monarch.storage.automation import PolicyStore
+    from monarch.storage.profiles import ProfileStore
+
+    class QuietWatcher:
+        def __init__(self, session):
+            pass
+
+        async def invalidations(self):
+            await asyncio.Event().wait()
+            yield "never"
+
+    monkeypatch.setattr(worker_module, "EventWatcher", QuietWatcher)
+    coordinator, store, baseline, desired, state = guard_setup
+    profiles = ProfileStore(tmp_path / "profiles")
+    profile = profiles.save("Already current", baseline)
+    PolicyStore(profiles.directory).write(Policy(True, (Rule(profile.id),)))
+    worker = worker_module.BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    worker.profile_store = profiles
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready and worker.inspector is not None)
+        calls = []
+        original = worker.inspector.inspect
+
+        async def observed():
+            calls.append(True)
+            return await original()
+
+        monkeypatch.setattr(worker.inspector, "inspect", observed)
+        item = widget.canvas.items_by_name[baseline.outputs[0].name]
+        qtbot.waitUntil(lambda: len(calls) >= 2, timeout=8000)
+        qtbot.wait(100)
+        assert widget.canvas.items_by_name[baseline.outputs[0].name] is item
+        assert widget.confirmation is None
+    finally:
+        widget._closing = True
+        widget.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
