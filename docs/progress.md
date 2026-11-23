@@ -70,7 +70,11 @@ AUR submission has been performed.
 
 See the [Phase 7 report](phase-7-report.md) for source/wheel assets, native Arch
 package, clean install/removal, installed payload/native evidence and CI artifacts.
-Packaging availability is separate from the user's proper test and release gate.
+All 231 tests passed in hosted Python 3.12–3.14 and the clean Arch job;
+[CI on `155bd79`](https://github.com/Azazel55605/monarch/actions/runs/45219136187)
+uploaded source/wheel/native artifacts. Native packaged Qt help/icon startup passed,
+but the complete nested probe hit output-creation/mirror timeouts. Packaging
+availability is separate from the user's proper test and release gate.
 
 ## Phase 6 checks
 

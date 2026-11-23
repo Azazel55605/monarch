@@ -11,7 +11,7 @@ instruction. AUR and PyPI publication are separate, unperformed actions.
 - [x] Offline help, notices, changelog, testing and removal/recovery guides supplied.
 - [x] CI builds Python artifacts and a native Arch package with install/remove checks.
 - [x] Existing hardware limitations and advanced-write deferrals documented.
-- [ ] Final local/hosted evidence recorded in the Phase 7 report after checks complete.
+- [x] Final local/hosted evidence recorded in the [Phase 7 report](phase-7-report.md).
 
 ## Stable release gates
 

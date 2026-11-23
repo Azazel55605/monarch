@@ -23,5 +23,6 @@ Writes require clean Hyprland 0.57.2 Lua, verified configuration ownership, and 
 or unknown state can make the editor inspection-only. Advanced VRR, depth, color/HDR
 and ICC writes are explicitly deferred. No settings are automatically reset.
 Legacy hyprlang writing/conversion and custom-modeline editing are out of scope.
-The Phase 4 virtual disable/re-enable timeout and physical release matrix remain open.
+The Phase 4 virtual disable/re-enable timeout, candidate nested output-creation/
+mirror timeouts and physical release matrix remain open.
 Automation and login startup are disabled by default; all previews require Keep.

@@ -25,7 +25,11 @@ Local validation: all **231 tests pass** on Python 3.13.12, with Ruff formatting
 lint and strict mypy (49 source files). Source/wheel assets and checksums pass.
 An isolated wheel install verifies command, help and shared desktop/icon assets,
 then verifies their removal. The full clean Arch suite also passes 231 tests on
-distro Python 3.14. Hosted and final native evidence are recorded below once run.
+distro Python 3.14. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45219136187)
+on `155bd79` passed all 231 tests on Python 3.12, 3.13 and 3.14, plus the
+Arch package build/install/removal job. All four candidate artifacts uploaded.
+The downloaded Arch candidate and Python artifacts passed SHA-256 verification;
+its application modules/resources match the payload used for the native checks.
 These layers stay separate:
 
 1. Automated/offscreen tests and source/wheel asset checks.
@@ -39,7 +43,9 @@ The builder base is pinned to official Arch image digest
 `sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899`.
 Its package repositories roll forward, so the image digest alone does not make the
 entire dependency set immutable. The actual package/build metadata and dependency
-versions accompany the evidence. No bit-for-bit reproducibility or signed-package
+versions accompany the evidence. The local clean builder resolved Python
+3.14.10-1, PySide6 6.12.0-3, qt6-base 6.12.0-5, qt6-svg 6.12.0-1,
+Hyprland 0.57.2-1 and namcap 3.6.0-3. No bit-for-bit reproducibility or signed-package
 claim is made; SHA-256 manifests identify the concrete artifacts.
 
 The clean environment runs the complete test suite through PKGBUILD `check()`,
