@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Editors and local environment
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+# Local tooling and runtime captures
+.agents/
+.codex/
+.aws/
+*.log
+local-data/
+# Desktop metadata
+.DS_Store
