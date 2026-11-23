@@ -72,7 +72,10 @@ The rc3 physical toggle failed and rolled back; the journal reported an unobserv
 update. Global VRR re-enabling then produced an external/owned-baseline mismatch.
 `0.1.0rc4` models the supported compositor's cached-rule behavior and adds a guarded
 soft refresh. See the [compatibility fix](vrr-guide.md#hyprland-0572-vrr-only-update-fix-rc4).
-Final software/package checks are pending; physical acceptance remains open.
+[Final rc4 CI](https://github.com/Azazel55605/monarch/actions/runs/45241834537) on
+`fe144db` passed all 266 tests on Python 3.12–3.14 and clean Arch build/install/removal.
+Candidate checksums, source manifest and installed application payload verified;
+native virtual position refresh/restoration passed. Physical VRR acceptance remains open.
 
 ## VRR follow-up
 

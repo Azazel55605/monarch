@@ -88,13 +88,14 @@ module to bypass the mismatch.
 
 References: [0.57.2 rule comparison](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/shared/monitor/MonitorRule.cpp),
 [0.57.2 property refresh](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/supplementary/propRefresher/PropRefresher.cpp).
-Local rc4 checks pass: the full run passed 265 tests, with the external-edit
-fixture corrected and verified separately. Ruff/format, strict mypy and artifact
-checks pass. The native nested probe observed the intermediate position and exact
-restoration on virtual outputs, with no parent monitor writes. Final hosted/full
-suite and package results are recorded after validation. Physical VRR acceptance
-remains a user test; this regression and virtual geometry check are not hardware
-certification.
+[Final rc4 CI on `fe144db`](https://github.com/Azazel55605/monarch/actions/runs/45241834537)
+passed all **266 tests** on Python 3.12, 3.13 and 3.14 and through Arch makepkg/check.
+Actual pacman installation/removal, Ruff/format, strict mypy and artifact checks
+passed. The downloaded package, wheel/source checksums and source manifest verified;
+installed application files match the tested source. The native nested probe
+observed the intermediate position and exact restoration on virtual outputs, with
+no parent monitor writes. Physical VRR acceptance remains a user test; this regression
+and virtual geometry check are not hardware certification.
 
 ## Recovery and limits
 
