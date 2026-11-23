@@ -84,6 +84,27 @@ the interpreter constraint, and dynamically loaded Qt SVG/Hyprland usage. These
 are checked by installed runtime execution; the unfiltered report accompanies the
 package. No warning is presented as a clean static report.
 
+## User feedback — 2026-11-23
+
+User testing confirms system theme, icon/tray, offline help, display discovery,
+diagnostics and the status banner work in the target desktop session. This is
+user-reported native-session evidence, separate from automated/container results;
+it does not establish package installation provenance or fresh-login acceptance.
+
+The reported blocker is inability to apply layout edits with existing advanced
+state. Two supplied observation snapshots show 8-bit XRGB8888 and sRGB; one has
+active VRR, the other has inactive VRR and advertised HDR metadata. Active VRR is
+a confirmed blocker in the current guard. HDR metadata alone is not a blocker,
+and these screenshots do not establish every SDR parameter checked by the guard.
+
+The current model enables basic draft controls independently of write readiness.
+Whether those controls are also greyed out, rather than only Preview being
+unavailable, needs clarification. Physical Keep/Revert, persistence, docking,
+resume and startup acceptance remain untested. The follow-up investigation is
+preserving existing VRR policy through basic edits and recovery, rather than
+requiring the user to turn it off or simply removing the recovery gate. No
+advanced write support or hardware rollback validation is implied by this report.
+
 ## Remaining gates and known limits
 
 The Phase 5 physical dock/resume/fresh-login gate remains open. Phase 6 advanced
@@ -91,8 +112,9 @@ writes remain explicitly deferred. Current active VRR/10-bit/HDR or unknown requ
 state can block basic application; packaging does not override that gate or reset
 those settings. The Phase 4 virtual disable/re-enable timeout remains recorded.
 
-Physical mode switches, the user's actual installed-session menu/tray/login behavior,
-and the broader GPU/recovery matrix still need acceptance. Candidate availability
+Physical mode switches, actual menu/login behavior, and the broader GPU/recovery
+matrix still need acceptance; the target-session tray and startup UI checks above
+are confirmed separately. Candidate availability
 is not evidence that these gates passed. The next action is a proper user test and
 feedback cycle, followed by evidence-driven advanced-feature work. v0.1.0 tagging
 and publication wait for explicit authorization and an accepted checklist.

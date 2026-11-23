@@ -66,6 +66,15 @@ Advanced writes remain deferred pending per-option hardware recovery evidence;
 additional advanced work follows the feedback cycle. No stable tag/publication or
 AUR submission has been performed.
 
+## User feedback
+
+Target-session theme, icon/tray, help, discovery, diagnostics and status banner
+are confirmed working by user testing. Active VRR blocks layout application with
+the current basic recovery guard; draft-control availability needs clarification.
+See the [feedback record](phase-7-report.md#user-feedback--2026-11-23).
+Physical preview/recovery acceptance remains open. Investigate preservation of
+existing VRR policy before asking for that part of the test again.
+
 ## Phase 7 candidate checks
 
 See the [Phase 7 report](phase-7-report.md) for source/wheel assets, native Arch
