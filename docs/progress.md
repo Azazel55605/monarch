@@ -68,7 +68,9 @@ stays in Phase 5. Physical modesetting and the broader release matrix remain ope
 See the [Phase 3 report](phase-3-report.md) for automated/installed-wheel results,
 real native Qt/Wayland integration, fractional scaling, Keep/persistence, Revert,
 per-output placement and hotplug checks. A read-only physical three-output startup
-also passed without monitor changes. The GUI is a manual-editor alpha.
+also passed without monitor changes. All 141 tests passed locally on Python
+3.12–3.14, including installed-wheel checks. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45164889581)
+passed all three versions on `550aa0a`. The GUI is a manual-editor alpha.
 
 ## Phase 2 checks
 

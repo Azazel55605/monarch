@@ -38,6 +38,7 @@ See the [integration guide](phase-3-guide.md) for the exact contract.
 | Python 3.14.10, installed wheel with GUI | 141 passed; installed `monarch --version` reports dev3 |
 | Ruff / strict mypy | Passed, including GUI code and Qt stubs |
 | Source distribution / wheel | Built successfully |
+| Hosted Ubuntu CI, Python 3.12 / 3.13 / 3.14 | All jobs passed on `550aa0a` |
 
 New coverage includes real drag events, repeated UI/model updates, arrow-key/numeric
 parity, invalid and all-disabled layouts, mode/refresh/transform/mirror controls,
@@ -53,6 +54,10 @@ results, including its Qt installation and package build steps. The first hosted
 run exposed missing `libEGL.so.1` on the Ubuntu runner before test collection;
 the workflow explicitly installs the Qt graphics libraries. Local Arch checks
 were unaffected.
+
+[Passing hosted run](https://github.com/Azazel55605/monarch/actions/runs/45164889581)
+includes lint, formatting, strict types, all 141 tests per Python version and builds.
+Later commit status remains independently visible in GitHub Actions.
 
 ## Native Qt/Wayland acceptance
 
