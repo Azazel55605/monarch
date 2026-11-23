@@ -24,6 +24,7 @@ def check(directory: Path) -> None:
             "share/icons/hicolor/scalable/apps/org.monarch.Monarch.svg",
             "share/licenses/monarch-displays/LICENSE",
             "share/doc/monarch-displays/CHANGELOG.md",
+            "share/doc/monarch-displays/vrr-guide.md",
         ):
             if not any(name.endswith(suffix) for name in names):
                 raise ValueError(f"Wheel is missing {suffix}")

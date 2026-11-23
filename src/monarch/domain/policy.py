@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from monarch.domain.advanced import basic_issues
-from monarch.domain.layout import Layout
+from monarch.domain.layout import Layout, capture_output
 from monarch.domain.monitors import Monitor
 from monarch.domain.profiles import Profile, candidates_for, resolve
 from monarch.errors import MonarchError
@@ -116,7 +116,8 @@ def match(profile: Profile, rule: Rule, monitors: tuple[Monitor, ...]) -> Layout
         raise MonarchError("Subset identities are not one-to-one.")
     wanted = resolve(profile, tuple(selected), bindings)
     # Unknown extras retain their CURRENT settings, including enabled state.
-    current = Layout.capture(monitors)
+    extras = tuple(m for m in monitors if m.name not in {o.name for o in wanted.outputs})
+    current = Layout(tuple(capture_output(m) for m in extras))
     names = {o.name for o in wanted.outputs}
     layout = Layout(wanted.outputs + tuple(o for o in current.outputs if o.name not in names))
     layout.validate(monitors)

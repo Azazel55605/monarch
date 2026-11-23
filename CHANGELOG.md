@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0rc3 — explicit VRR Off/On
+
+- Per-monitor VRR Off/On in the editor, guarded previews, profiles, rollback and
+  Save on login. Every generated output rule carries an explicit policy.
+- Layout schema 2 with strict integer VRR values. Basic-only schema-1 layouts are
+  interpreted as Off; legacy module bytes and old recovery journals stay readable.
+  Old profile data is backed up before a layout-schema migration is written.
+- Active VRR is permitted when it matches an owned Off/On baseline. Unknown state,
+  unadvertised On capability and an unobserved write still fail closed. Conditional
+  modes are not inferred from an active boolean and remain unavailable.
+- Software and virtual parser validation are separate from target physical VRR
+  acceptance. HDR, bit depth and color/ICC writes remain deferred.
+
 ## 0.1.0rc2 — tray and canvas feedback
 
 - Close to an available tray by default, retaining drafts and the monitor watcher;

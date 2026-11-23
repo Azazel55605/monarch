@@ -11,9 +11,16 @@ use the Appearance menu to choose another available style.
 
 Read the status banner first. Monitor writes require the clean Hyprland 0.57.2 Lua
 release, a verified owned/registered config, and known basic state on active outputs:
-8-bit sRGB/default SDR with inactive VRR. Advanced settings shows observations and
-why advanced writes are unavailable. Active VRR/10-bit/HDR or unknown observations
-can make the editor inspection-only. Monarch does not turn those settings off.
+8-bit sRGB/default SDR and known VRR state. Set VRR to Off or On in the display
+editor; On requires reported VRR capability. Preview, Keep/Revert, profiles and Save
+on login carry this per-display policy explicitly. Advanced settings shows color/depth observations; those controls remain
+read-only; 10-bit/HDR or unknown observations can still block application.
+
+Older basic-only layouts migrate as VRR Off. Existing externally active or
+conditional VRR cannot be inferred from the active flag: establish the reviewed Off
+baseline once, then enable On through Monarch. Do not edit the generated module by
+hand. Conditional fullscreen policies are not supported. Physical VRR acceptance
+on a particular display remains a user test; guarded rollback cannot certify a GPU.
 
 ## Set up, preview, and save
 

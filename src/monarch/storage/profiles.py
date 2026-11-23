@@ -106,8 +106,12 @@ class ProfileStore:
             previous = read_private(self.path)
             if digest(previous) != expected:
                 raise MonarchError("Profile catalog changed externally; refresh before editing.")
-            if json.loads(previous)["schema_version"] == 1:
-                backup = self.directory / f"schema-1-backup-{digest(previous)}.json"
+            legacy = json.loads(previous)
+            if legacy["schema_version"] == 1 or any(
+                row["layout"]["schema_version"] == 1 for row in legacy["profiles"]
+            ):
+                prefix = "schema-1" if legacy["schema_version"] == 1 else "layout-schema-1"
+                backup = self.directory / f"{prefix}-backup-{digest(previous)}.json"
                 if not backup.exists():
                     atomic_write(backup, previous, create=True)
                 elif read_private(backup) != previous:

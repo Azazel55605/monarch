@@ -59,12 +59,21 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Test the `0.1.0rc2` candidate and collect user feedback using the
-[testing guide](testing-guide.md). Record actual installed-session/physical basic
-mode, dock/resume and fresh-login acceptance before stable release promotion.
-Advanced writes remain deferred pending per-option hardware recovery evidence;
-additional advanced work follows the feedback cycle. No stable tag/publication or
-AUR submission has been performed.
+Test `0.1.0rc3` VRR Off/On using the [VRR guide](vrr-guide.md), starting from the
+reviewed inactive legacy baseline. Record physical Preview → Revert, Keep,
+Save on login and ordinary layout edits with VRR On. Target-display, dock/resume
+and fresh-login acceptance still precede stable promotion. Conditional VRR,
+HDR/depth/color/ICC and unknown-display automatic configuration remain future work.
+No stable tag/publication or AUR submission has been performed.
+
+## VRR follow-up
+
+`0.1.0rc3` implements explicit per-monitor Off/On through the shared guard, layout
+schema 2, profiles, preview, rollback and persistence. Legacy layouts/modules and
+journals remain readable. [Current behavior and evidence](vrr-guide.md) supersede
+the Phase 6 VRR deferral; target physical VRR acceptance remains **In progress**.
+Conditional policies are not inferred from active state and remain deferred.
+The software gate no longer rejects an owned and observed VRR On baseline.
 
 ## Tray and canvas feedback follow-up
 
@@ -74,8 +83,8 @@ contrasting monitor outlines, and live zoom-aware edge snapping. See the
 Python 3.12–3.14 and the clean Arch build/install/removal job on `3024b18`;
 source/wheel/native artifacts were downloaded and verified. Automatic integration of newly
 attached unknown external displays remains a future request; the existing watcher
-continues discovery while hidden. VRR preservation remains the next write-path
-blocker to investigate. Physical acceptance gates remain open.
+continues discovery while hidden. The VRR follow-up above addresses the software
+write-path blocker; physical acceptance gates remain open.
 
 ## User feedback
 
@@ -84,8 +93,8 @@ are confirmed working by user testing. Active VRR blocks layout application with
 the current basic recovery guard. The user confirms both Set up monitor management
 and Preview changes are greyed out by that gate.
 See the [feedback record](phase-7-report.md#user-feedback--2026-11-23).
-Physical preview/recovery acceptance remains open. Investigate preservation of
-existing VRR policy before asking for that part of the test again.
+This is the historical rc1/rc2 feedback; rc3 adds explicit owned VRR Off/On.
+Physical preview/recovery acceptance remains open.
 
 ## Phase 7 candidate checks
 

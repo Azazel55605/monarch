@@ -23,6 +23,13 @@ def add_commands(commands: argparse._SubParsersAction[argparse.ArgumentParser]) 
     layout = commands.add_parser("layout", help="Capture or validate a data-only layout")
     layouts = layout.add_subparsers(dest="layout_action", required=True)
     capture = layouts.add_parser("capture", help="Capture identities and current settings")
+    capture.add_argument(
+        "--vrr-on",
+        action="append",
+        default=[],
+        metavar="OUTPUT",
+        help="Explicitly record an active output as VRR On; conditional policy is not inferred",
+    )
     capture.add_argument("--output", type=Path, help="Private file; otherwise print JSON to stdout")
     validate = layouts.add_parser("validate")
     validate.add_argument("file", type=Path)
@@ -77,7 +84,7 @@ async def execute(args: argparse.Namespace) -> int:
     if args.command == "layout":
         monitors = parse_monitors(await Hyprctl(session).read("monitors", "all"))
         if args.layout_action == "capture":
-            layout = Layout.capture(monitors)
+            layout = Layout.capture(monitors, vrr_policies={name: 1 for name in args.vrr_on})
             if args.output:
                 write_json(args.output.expanduser().absolute(), layout.to_dict(), create=True)
                 print("Captured a private layout file containing monitor identities.")

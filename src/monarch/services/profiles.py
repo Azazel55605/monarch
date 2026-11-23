@@ -26,6 +26,13 @@ def add_profile_commands(commands: argparse._SubParsersAction[argparse.ArgumentP
     show = actions.add_parser("show", help="Print profile including monitor identities")
     show.add_argument("name")
     capture = actions.add_parser("capture", help="Save the observed layout without applying it")
+    capture.add_argument(
+        "--vrr-on",
+        action="append",
+        default=[],
+        metavar="OUTPUT",
+        help="Explicitly record an active output as VRR On; conditional policy is not inferred",
+    )
     capture.add_argument("name")
     save = actions.add_parser("save", help="Create a profile from a private layout JSON")
     save.add_argument("name")
@@ -75,7 +82,9 @@ async def execute_profile(args: argparse.Namespace) -> int:
     elif action == "capture":
         session = Session.from_environment()
         monitors = parse_monitors(await Hyprctl(session).read("monitors", "all"))
-        store.save(args.name, Layout.capture(monitors))
+        store.save(
+            args.name, Layout.capture(monitors, vrr_policies={name: 1 for name in args.vrr_on})
+        )
     elif action == "rename":
         profile = store.get(args.name)
         store.rename(profile.id, args.new_name)

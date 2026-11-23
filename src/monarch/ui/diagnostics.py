@@ -31,7 +31,7 @@ class AdvancedDialog(QDialog):
         self.setModal(True)
         layout = QVBoxLayout(self)
         note = QLabel(
-            "Observation snapshot. No advanced writes are enabled in this build. "
+            "Observation snapshot. VRR Off/On is available in the display editor. "
             "Hardware flags, current state and validated write support are different evidence."
         )
         note.setWordWrap(True)
@@ -42,7 +42,12 @@ class AdvancedDialog(QDialog):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         for row, feature in enumerate(rows):
             for column, text in enumerate(
-                (feature.label, feature.observation, "Unavailable", feature.reason)
+                (
+                    feature.label,
+                    feature.observation,
+                    "Editor: Off/On" if feature.writable else "Unavailable",
+                    feature.reason,
+                )
             ):
                 item = QTableWidgetItem(text)
                 item.setToolTip(text)

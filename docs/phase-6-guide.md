@@ -1,5 +1,9 @@
 # Advanced observations, compatibility and diagnostics
 
+**Historical Phase 6 contract:** VRR Off/On support in `0.1.0rc3` supersedes the
+VRR restrictions below; see the [current VRR guide](vrr-guide.md). Other advanced
+write deferrals remain in force.
+
 Phase 6 adds an **Advanced settings…** observation panel, stricter recovery gates,
 redacted diagnostics and compatibility decisions. **No advanced write control is
 enabled in this build.** The plan explicitly defers settings without adequate

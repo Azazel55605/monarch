@@ -103,8 +103,9 @@ def features(state: AdvancedState) -> tuple[Feature, ...]:
             "vrr",
             "Variable refresh rate",
             f"Active: {yes_no(state.vrr_active)}; capable: {yes_no(state.vrr_capable)}",
-            False,
-            "Active state does not reveal the previous VRR policy. " + deferred,
+            state.vrr_capable is True and state.vrr_active is not None,
+            "Off/On policies are configured in the display editor and use guarded preview. "
+            "Conditional modes remain unavailable; active state does not reveal their policy.",
         ),
         Feature(
             "bit_depth",
@@ -133,13 +134,14 @@ def features(state: AdvancedState) -> tuple[Feature, ...]:
 
 
 def basic_issues(monitors: tuple[Monitor, ...]) -> tuple[str, ...]:
+    """SDR gate; known VRR On/Off is verified separately against each layout."""
     issues: set[str] = set()
     for monitor in monitors:
         if monitor.disabled is True:
             continue
         state = monitor.advanced
-        if state.vrr_active is not False:
-            issues.add("VRR is active or its state is unknown.")
+        if state.vrr_active is None:
+            issues.add("VRR state is unknown; policy application and recovery cannot be verified.")
         if state.bit_depth != 8:
             issues.add("The current pixel format is not verified 8-bit SDR.")
         if state.color_preset != "srgb":

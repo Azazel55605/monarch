@@ -880,3 +880,58 @@ def test_selecting_nearby_monitor_does_not_snap_or_change_layout(qtbot):
     )
     assert round(item.pos().x() / FACTOR) == 1950
     assert not moved
+
+
+def test_vrr_editor_keep_persist_and_observed_profile_capture(qtbot, guard_setup, tmp_path):
+    import json
+
+    from monarch.storage.profiles import ProfileStore
+    from monarch.ui.worker import BackendThread
+
+    coordinator, store, baseline, desired, state = guard_setup
+    data = json.loads(state.read_text())
+    data["monitors"][0]["hardwareDetails"]["vrrCapable"] = True
+    state.write_text(json.dumps(data))
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    worker.profile_store = ProfileStore(tmp_path / "vrr-profiles")
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready, timeout=10000)
+        widget.vrr.setCurrentIndex(1)
+        assert widget.model.draft.outputs[0].vrr == 1
+        assert widget.apply.isEnabled()
+        widget.persist.setChecked(True)
+        widget.start_preview()
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
+        widget.confirmation.choose(True)
+        qtbot.waitUntil(
+            lambda: (
+                not widget.model.busy and widget.ready and widget.model.observed.outputs[0].vrr == 1
+            ),
+            timeout=10000,
+        )
+        assert widget.model.observed.outputs[0].vrr == 1
+        assert store.read()[0].outputs[0].vrr == 1
+        widget.profile_request("capture", {"name": "VRR on"})
+        qtbot.waitUntil(lambda: len(worker.profile_store.list()) == 1, timeout=10000)
+        assert worker.profile_store.list()[0].layout.outputs[0].vrr == 1
+        widget.vrr.setCurrentIndex(0)
+        widget.start_preview()
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
+        widget.confirmation.choose(False)
+        qtbot.waitUntil(lambda: not widget.model.busy, timeout=10000)
+        assert store.read()[0].outputs[0].vrr == 1
+        assert json.loads(state.read_text())["monitors"][0]["vrr"] is True
+    finally:
+        widget._closing = True
+        worker.shutdown()
+        worker.wait(10000)
+        widget.close()

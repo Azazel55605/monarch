@@ -1,6 +1,6 @@
 # Candidate and release checklist
 
-Version: `0.1.0rc2`. This is the testing handoff; **v0.1.0 is not tagged or published**.
+Version: `0.1.0rc3`. This is the testing handoff; **v0.1.0 is not tagged or published**.
 The implementation plan reserves release tagging/publication for a later explicit
 instruction. AUR and PyPI publication are separate, unperformed actions.
 
@@ -24,7 +24,8 @@ instruction. AUR and PyPI publication are separate, unperformed actions.
 - [ ] Final license/dependency notices and the exact artifacts selected for publication reviewed.
 - [ ] Explicit authorization to promote/tag/publish a stable release received.
 
-Advanced write support is not assumed by this candidate. VRR, depth, color/HDR and
-ICC must each acquire hardware rollback evidence and an owned data/schema design
-before being enabled. Legacy writing and custom-modeline editing remain deferred.
-The existing read-only physical report is not physical modesetting certification.
+VRR Off/On is implemented in the rc3 testing candidate with explicit policies,
+observed-state checks and software recovery coverage. Physical target-display
+Keep/Revert, persistence and recovery acceptance remains a release gate. Conditional
+VRR, depth, color/HDR and ICC writes remain deferred pending their own design and
+hardware evidence. Legacy writing and custom-modeline editing remain deferred.

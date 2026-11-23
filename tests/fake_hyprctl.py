@@ -57,6 +57,7 @@ with path.open("r+") as stream:
                     int(y),
                     not values["disabled"],
                     values["mirror"],
+                    values.get("vrr", 0),
                 )
             ]
         else:
@@ -85,6 +86,7 @@ with path.open("r+") as stream:
                         transform=output.transform,
                         disabled=not output.enabled,
                         mirrorOf=output.mirror or "none",
+                        vrr=m.get("vrr") if data.get("ignore_vrr") else bool(output.vrr),
                     )
     stream.seek(0)
     json.dump(data, stream)

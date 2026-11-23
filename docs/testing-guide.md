@@ -1,8 +1,8 @@
-# Testing the 0.1.0rc2 candidate
+# Testing the 0.1.0rc3 candidate
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
-acceptance and advanced display writes remain open. The candidate nested probe
+acceptance and physical VRR verification remain open; other advanced writes are deferred. The candidate nested probe
 also hit virtual-output creation/mirror timeouts; see the [evidence report](phase-7-report.md).
 
 ## Install on Arch/Garuda
@@ -15,8 +15,8 @@ tray instance. Reopen after installation to load the new version. From a checkou
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
 uv build --out-dir dist/candidate
-python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc2.tar.gz
-sudo pacman -U dist/arch/monarch-displays-0.1.0rc2-1-any.pkg.tar.zst
+python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc3.tar.gz
+sudo pacman -U dist/arch/monarch-displays-0.1.0rc3-1-any.pkg.tar.zst
 ```
 
 Review `packaging/arch/PKGBUILD.in` and the generated `dist/arch/PKGBUILD` first.
@@ -52,7 +52,7 @@ this checkout's built wheel:
 
 ```sh
 python -m venv /path/to/monarch-test
-/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc2-py3-none-any.whl[gui]'
+/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc3-py3-none-any.whl[gui]'
 /path/to/monarch-test/bin/monarch gui --tray
 ```
 
@@ -66,9 +66,10 @@ project. Do not install both variants into the same Python environment or use
 
 1. Start without applying anything. Check theme, icon/tray, help, display discovery,
    diagnostics, and the status banner. Reopening the app must not apply settings.
-2. Inspect Advanced settings. Active VRR/10-bit/HDR or unknown required state makes
-   the current basic guard inspection-only. Record that result; do not bypass it.
-   Advanced writes and automatic reset of those states are not part of this candidate.
+2. Follow the [VRR guide](vrr-guide.md) for initial Off-baseline migration, per-monitor
+   Off/On, Preview → Revert and Preview → Keep. With Save on login checked, verify
+   the per-monitor policy after a fresh login separately. Conditional VRR, HDR,
+   depth/color/ICC and unknown required state remain outside supported writes.
 3. Exercise draft editing and profiles: canvas/numeric parity, snapping, scale/mode/
    rotation/mirror validation, capture observed vs edited, import/export and dirty
    drafts. Catalog changes alone must not apply a display layout.
@@ -101,7 +102,7 @@ Reports omit names/serials/paths/config contents, but geometry and capabilities 
 Never attach raw EDID, private Lua, raw logs or credentials by default. The GitHub
 bug form follows this structure. Feedback can also be given in the ongoing project
 conversation. Advanced feature priorities can be selected after this test cycle;
-no advanced write is enabled by this packaging change.
+VRR Off/On is now implemented; conditional VRR and other advanced writes remain deferred.
 
 ## Remove or reinstall
 

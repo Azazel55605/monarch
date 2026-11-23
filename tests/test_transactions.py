@@ -54,6 +54,7 @@ class FakeBackend:
                     scale=output.scale,
                     disabled=not output.enabled,
                     mirror_of=output.mirror or None,
+                    advanced=replace(m.advanced, vrr_active=bool(output.vrr)),
                 )
             updated.append(m)
         self.live = tuple(updated)

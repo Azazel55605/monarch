@@ -85,3 +85,10 @@ the native compatibility probe against that package payload and independent guar
 without installing it on the host. Keep container lifecycle, staged native Wayland
 and physical installed-session acceptance distinct. See the
 [testing guide](docs/testing-guide.md) and [release checklist](docs/release-checklist.md).
+
+The rc3 VRR follow-up uses explicit layout-schema-2 Off/On values, never a guessed
+conditional policy. `tools/probe_vrr.py` is a parser smoke test on verified owned
+virtual outputs only; it must not be presented as physical Adaptive Sync evidence.
+Keep legacy module bytes/journal digests recoverable and profile migration backups
+private. Test unsupported capability, ineffective acknowledgements and recovery
+from a partially enabled policy. See the [VRR guide](docs/vrr-guide.md).

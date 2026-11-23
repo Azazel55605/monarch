@@ -226,6 +226,15 @@ class MainWindow(QMainWindow):
         )
         self.rotation.setObjectName("rotation")
         form.addRow("Transform", self.rotation)
+        self.vrr = QComboBox()
+        self.vrr.setAccessibleName("Variable refresh rate policy")
+        self.vrr.addItem("Off", 0)
+        self.vrr.addItem("On", 1)
+        self.vrr.setToolTip(
+            "Per-display VRR policy. Off/On uses Keep/Revert and Save on login. "
+            "Fullscreen-only policies are not supported yet."
+        )
+        form.addRow("VRR", self.vrr)
         self.position_x = QSpinBox()
         self.position_y = QSpinBox()
         for name, spin in [
@@ -289,6 +298,7 @@ class MainWindow(QMainWindow):
         self.canvas.moved.connect(self.position_changed, Qt.ConnectionType.QueuedConnection)
         self.displays.currentRowChanged.connect(self.row_selected)
         self.resolution.currentIndexChanged.connect(self.resolution_changed)
+        self.vrr.currentIndexChanged.connect(self.fields_changed)
         self.refresh_rate.currentIndexChanged.connect(self.fields_changed)
         self.enabled.toggled.connect(self.fields_changed)
         self.scale.valueChanged.connect(self.fields_changed)
@@ -380,6 +390,7 @@ class MainWindow(QMainWindow):
                 (m for m in self.model.inspection.monitors if m.name == output.name), None
             )
             self.enabled.setChecked(output.enabled)
+            self.vrr.setCurrentIndex(output.vrr)
             self.resolution.clear()
             resolutions = []
             if monitor:
@@ -466,6 +477,7 @@ class MainWindow(QMainWindow):
             x=self.position_x.value(),
             y=self.position_y.value(),
             mirror=self.mirror.currentData() or "",
+            vrr=self.vrr.currentData(),
         )
         self.render_state()
 

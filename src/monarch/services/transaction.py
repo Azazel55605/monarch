@@ -12,8 +12,9 @@ from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout, Output, ordered
 from monarch.domain.monitors import Monitor
 from monarch.errors import MonarchError
+from monarch.services.baseline import known_baseline
 from monarch.services.state import TERMINAL, Paths
-from monarch.storage.files import atomic_write, digest, read_json, read_private, write_json
+from monarch.storage.files import atomic_write, digest, read_private, write_json
 from monarch.storage.managed import ROOT, Managed, parse_content, render
 
 
@@ -71,28 +72,29 @@ class Transaction:
             )
         if active_config != managed.root:
             raise MonarchError("Active config is not the verified Monarch-owned root.")
-        disk_layout, disk_bytes = managed.read()
         monitors = await self.backend.observe()
         require_basic(monitors)
         desired.validate(monitors)
-        baseline = disk_layout
-        if self.paths.confirmed.exists():
-            known = read_json(self.paths.confirmed)
-            if (
-                isinstance(known, dict)
-                and known.get("root") == str(managed.directory)
-                and known.get("disk_digest") == digest(disk_bytes)
-                and known.get("session_token") == self.token()
-            ):
-                confirmed = Layout.parse(known["layout"])
-                if confirmed.matches(monitors):
-                    baseline = confirmed
+        baseline, disk_bytes = known_baseline(
+            managed,
+            self.paths,
+            self.token(),
+            monitors,
+            allow_topology_rebase=allow_topology_rebase,
+        )
         saved_set = {(o.name, o.make, o.model, o.serial) for o in baseline.outputs}
         connected_set = {(m.name, m.make, m.model, m.serial) for m in monitors}
         if allow_topology_rebase and saved_set != connected_set:
             # Explicit automation ownership permits only topology-driven basic
             # snapshots, never adoption of unexplained drift on the same set.
-            baseline = Layout.capture(monitors)
+            baseline = Layout.capture(
+                monitors,
+                vrr_policies={
+                    o.name: o.vrr
+                    for o in baseline.outputs
+                    if (o.name, o.make, o.model, o.serial) in connected_set
+                },
+            )
         baseline.validate(monitors)
         if not baseline.matches(monitors):
             raise MonarchError(
@@ -322,7 +324,14 @@ class Transaction:
         parse_content(record["disk_content"].encode())
         if digest(record["disk_content"].encode()) != record["disk_digest"]:
             raise MonarchError("Recovery backup digest mismatch.")
-        if digest(render(Layout.parse(record["desired"]))) != record["candidate_digest"]:
+        if (
+            digest(
+                render(
+                    Layout.parse(record["desired"]), legacy=record["desired"]["schema_version"] == 1
+                )
+            )
+            != record["candidate_digest"]
+        ):
             raise MonarchError("Recovery candidate digest mismatch.")
         self.record = record
         self.check_session()

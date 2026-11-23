@@ -24,7 +24,7 @@ def test_observation_is_distinct_from_supported_writes(monitors):
     state = parse_monitors(monitors)[0].advanced
     assert state.vrr_active and state.vrr_capable and state.hdr_metadata
     assert state.bit_depth == 10 and state.color_preset == "hdr"
-    assert all(not feature.writable and feature.reason for feature in features(state))
+    assert all(not feature.writable and feature.reason for feature in features(state)[1:])
     assert state.to_dict()["icc_state"] == "not_reported"
     with pytest.raises(MonarchError, match="cannot be restored"):
         require_basic(parse_monitors(monitors))
@@ -58,7 +58,7 @@ def test_hardware_support_flag_does_not_block_basic_or_enable_control(monitors):
     parsed = parse_monitors(monitors)
     require_basic(parsed)
     assert parsed[0].advanced.hdr_metadata
-    assert not features(parsed[0].advanced)[0].writable
+    assert features(parsed[0].advanced)[0].writable
     # Disabled outputs may carry stale/absent advanced observations.
     monitors[1].update(vrr=True, currentFormat="unknown", colorManagementPreset="wide")
     require_basic(parse_monitors(monitors))
@@ -67,12 +67,12 @@ def test_hardware_support_flag_does_not_block_basic_or_enable_control(monitors):
 def test_existing_schema_remains_strict_against_unsupported_advanced_imports(monitors):
     monitors[0]["scale"] = 1
     layout = Layout.capture(parse_monitors(monitors)).to_dict()
-    for field in ("vrr", "bitdepth", "icc", "cm", "hdr"):
+    for field in ("bitdepth", "icc", "cm", "hdr"):
         candidate = json.loads(json.dumps(layout))
         candidate["outputs"][0][field] = "unverified"
         with pytest.raises(MonarchError, match="documented layout fields"):
             Layout.parse(candidate)
-    layout["schema_version"] = 2
+    layout["schema_version"] = 3
     with pytest.raises(MonarchError, match="schema version"):
         Layout.parse(layout)
 
@@ -81,7 +81,7 @@ def test_advanced_state_prevents_automatic_offers(monitors):
     monitors[0]["scale"] = 1
     live = parse_monitors(monitors)
     profile = Profile("a" * 32, "Desk", Layout.capture(live))
-    advanced = (replace(live[0], advanced=replace(live[0].advanced, vrr_active=True)), live[1])
+    advanced = (replace(live[0], advanced=replace(live[0].advanced, color_preset="hdr")), live[1])
     result = choose(Policy(True, (Rule(profile.id),)), (profile,), advanced)
     assert result.layout is None and "Advanced state" in result.reason
 

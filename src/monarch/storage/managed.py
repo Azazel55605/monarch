@@ -16,12 +16,24 @@ ROOT = (
 HEADER = "-- Monarch monitor data v1: "
 
 
-def render(layout: Layout) -> bytes:
+def render(layout: Layout, *, legacy: bool = False) -> bytes:
     Layout.parse(layout.to_dict())
-    data = json.dumps(layout.to_dict(), ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    value = layout.to_dict()
+    if legacy:
+        if any(o.vrr for o in layout.outputs):
+            raise MonarchError("Legacy monitor data cannot represent VRR On.")
+        value["schema_version"] = 1
+        for output in value["outputs"]:
+            output.pop("vrr")
+    data = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     fallback = 'hl.monitor({output="",mode="preferred",scale=1,position="auto"})\n'
     return (
-        HEADER + data + "\n" + fallback + "\n".join(rule(o) for o in ordered(layout)) + "\n"
+        HEADER
+        + data
+        + "\n"
+        + fallback
+        + "\n".join(rule(o, legacy=legacy) for o in ordered(layout))
+        + "\n"
     ).encode()
 
 
@@ -79,9 +91,10 @@ def parse_content(content: bytes) -> Layout:
         header = content.decode().splitlines()[0]
         if not header.startswith(HEADER):
             raise ValueError("Missing header")
-        layout = Layout.parse(json.loads(header[len(HEADER) :]))
+        value = json.loads(header[len(HEADER) :])
+        layout = Layout.parse(value)
     except (ValueError, UnicodeError, IndexError) as exc:
         raise MonarchError("Invalid managed monitor file.") from exc
-    if render(layout) != content:
+    if render(layout, legacy=value["schema_version"] == 1) != content:
         raise MonarchError("Managed Lua differs from its data; external edits are preserved.")
     return layout

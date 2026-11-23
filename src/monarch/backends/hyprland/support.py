@@ -34,7 +34,5 @@ def blockers(inspection: Inspection) -> tuple[tuple[str, str], ...]:
     if not inspection.monitors:
         issues.append(("no_outputs", "No connected outputs are available."))
     for reason in basic_issues(inspection.monitors):
-        issues.append(
-            ("advanced_state", reason + " Advanced writes and recovery remain unavailable.")
-        )
+        issues.append(("advanced_state", reason + " Resolve this state before guarded changes."))
     return tuple(issues)

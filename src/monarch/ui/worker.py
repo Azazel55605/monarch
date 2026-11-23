@@ -20,9 +20,10 @@ from monarch.domain.policy import Policy
 from monarch.domain.profiles import MappingRequired, resolve
 from monarch.errors import MonarchError
 from monarch.services.automation import Automation
+from monarch.services.baseline import known_baseline
 from monarch.services.coordinator import Coordinator, Preview
 from monarch.services.diagnostics import collect, save
-from monarch.services.state import TERMINAL
+from monarch.services.state import TERMINAL, session_token
 from monarch.storage.automation import Autostart, PolicyStore, control, pin
 from monarch.storage.integration import IntegrationPlan
 from monarch.storage.managed import Managed
@@ -79,6 +80,7 @@ class BackendThread(QThread):
         self.automatic_preview = False
         self.profile_store = ProfileStore(config_home(env))
         self.latest_inspection: Inspection | None = None
+        self.known_vrr: dict[str, int] = {}
         self.inspector: Inspector | None = None
         self.coordinator: Coordinator | None = None
 
@@ -240,6 +242,7 @@ class BackendThread(QThread):
                     self.directory = minimal.directory
                 except (MonarchError, OSError):
                     pass
+        self.known_vrr = {}
         ready = False
         reason = "Set up monitor management to enable guarded changes."
         compatibility = blockers(inspection)
@@ -248,7 +251,36 @@ class BackendThread(QThread):
         elif self.directory is not None:
             try:
                 store = Managed(self.directory)
-                store.read()
+                assert self.coordinator is not None and self.session is not None
+                baseline, _ = known_baseline(
+                    store,
+                    self.coordinator.paths,
+                    session_token(self.session),
+                    inspection.monitors,
+                    allow_topology_rebase=True,
+                )
+                saved = {o.name: o for o in baseline.outputs}
+                verified_policies: dict[str, int] = {}
+                for monitor in inspection.monitors:
+                    output = saved.get(monitor.name)
+                    if output and (output.make, output.model, output.serial) != (
+                        monitor.make,
+                        monitor.model,
+                        monitor.serial,
+                    ):
+                        output = None
+                    policy = output.vrr if output else 0
+                    if output is not None:
+                        verified_policies[monitor.name] = policy
+                    if monitor.disabled is False and monitor.advanced.vrr_active is not bool(
+                        policy
+                    ):
+                        raise MonarchError(
+                            "Runtime VRR differs from the owned Off/On baseline. "
+                            "Restore the known policy before applying; active state alone "
+                            "cannot identify external or conditional VRR policy."
+                        )
+                self.known_vrr = verified_policies
                 if not inspection.config.verified or inspection.config.path != store.root:
                     raise MonarchError(
                         "The active configuration path cannot be verified for this integration."
@@ -370,7 +402,10 @@ class BackendThread(QThread):
             assert self.inspector is not None
             inspection = await self.inspector.inspect()
             if operation == "capture":
-                store.save(str(payload["name"]), Layout.capture(inspection.monitors))
+                store.save(
+                    str(payload["name"]),
+                    Layout.capture(inspection.monitors, vrr_policies=self.known_vrr),
+                )
             else:
                 profile = store.get(key)
                 try:

@@ -3,13 +3,14 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 7 testing candidate — `0.1.0rc2`.**
-Named profiles, guarded quick switching and opt-in automatic previews are available.
+**Status: Phase 7 testing candidate — `0.1.0rc3`.**
+Per-monitor VRR Off/On, named profiles, guarded quick switching and opt-in automatic
+previews are available. See the [VRR testing guide](docs/vrr-guide.md).
 Physical dock/resume acceptance remains open in the tracker. There is no stable
 release or AUR submission. A native Arch testing package can now be built or
 downloaded from successful CI runs. See the [installation/testing guide](docs/testing-guide.md).
 
-![Monarch showing advanced-state observations and write gates](docs/assets/monarch-advanced.png)
+![Monarch VRR Off/On editor with synthetic outputs](docs/assets/monarch-vrr-rc3.png)
 
 ## Install and test
 
@@ -47,13 +48,15 @@ Automatic previews still require Keep/Revert. Login startup is a separate opt-in
 See the [automation guide](docs/phase-5-guide.md).
 
 Use **Advanced settings…** for observed VRR/format/color/HDR state and explicit
-write limitations. **Help → Redacted diagnostics…** or `monarch diagnose` collects
-a support report. Advanced writes remain unavailable pending hardware recovery
-evidence; [Phase 6 guide](docs/phase-6-guide.md) explains the stricter basic-state gate.
+color/depth write limitations. **Help → Redacted diagnostics…** or `monarch diagnose` collects
+a support report. VRR Off/On is configured in the display editor and uses the shared recovery guard.
+HDR, depth, color/ICC and conditional VRR policies remain deferred; the
+[VRR guide](docs/vrr-guide.md) supersedes the VRR restriction in the Phase 6 guide.
 
 ## Available now
 
-- Read-only advanced observations, compatibility explanations and gated writes.
+- Per-monitor VRR Off/On with guarded preview, rollback, profiles and explicit persistence.
+- Advanced observations, compatibility explanations and gated color/depth writes.
 - Redacted GUI/CLI diagnostics with explicit private exports and conflict actions.
 - Tagged mirror-ID resolution with refusal of unknown targets.
 - Opt-in exact/subset topology matching, priorities, tie/no-match preservation.
@@ -76,10 +79,10 @@ evidence; [Phase 6 guide](docs/phase-6-guide.md) explains the stricter basic-sta
 
 The current write baseline is a clean Hyprland 0.57.2 Lua release. Default XDG
 config targets additionally require the verified hyprutils search implementation;
-other setups remain inspectable. Advanced HDR, VRR, color and custom modeline
-rules are outside the desktop integration contract. Active VRR, non-8-bit formats,
-non-sRGB/default SDR state or unknown required observations block the basic guard.
-Advanced writes are explicitly deferred. [Release gates](docs/release-checklist.md)
+other setups remain inspectable. HDR, color/depth, conditional VRR and custom modeline
+rules remain outside the integration contract. Non-8-bit formats, non-sRGB/default
+SDR state or unknown required observations block the guard. Existing external VRR
+policy must be reviewed; active state is never treated as proof of a saved policy. [Release gates](docs/release-checklist.md)
 remain open for physical/user acceptance; candidate packaging is available.
 
 ## Validation
