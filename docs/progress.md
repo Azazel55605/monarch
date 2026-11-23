@@ -72,7 +72,8 @@ Advanced settings remain read-only. Known non-basic/unknown active state blocks
 unsafe basic transactions; diagnostics and conflict reporting are redacted and
 read-only. All 228 tests pass on local Python 3.12–3.14, including installed
 GUI wheels on 3.12/3.14. Native basic recovery, virtual automation, mirror and Qt checks are
-separate from a read-only physical report check. Hardware write gates remain open.
+separate from a read-only physical report check. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45204554520)
+passed all three versions on `d9b7d6e`. Hardware write gates remain open.
 
 ## Phase 5 checks
 

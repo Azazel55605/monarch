@@ -52,6 +52,11 @@ accepted when they refer to a known named output. Tests cover resolution and ref
 | Python 3.14.10, installed GUI wheel | 228 tests passed; reports dev6 |
 | Ruff / formatting / strict mypy | Passed; 47 typed source files |
 | Source distribution / wheel | Built successfully |
+| Hosted Ubuntu CI, Python 3.12 / 3.13 / 3.14 | All jobs passed on `d9b7d6e` |
+
+[Passing hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45204554520)
+includes all 228 tests per Python version, lint/formatting, strict types and builds.
+Later commit status remains independently visible in GitHub Actions.
 
 New tests cover strict
 advanced observations, missing/invalid/nonfinite values, hardware flags vs write
