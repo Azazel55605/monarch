@@ -47,10 +47,10 @@ class PanelActivation(QObject):
         self.loaded = True
         if self.pending:
             panel, self.pending = self.pending, ""
-            self.open_panel(panel)
+            self.OpenPanel(panel)
 
-    @Slot(str, name="OpenPanel")
-    def open_panel(self, panel: str) -> None:
+    @Slot(str)
+    def OpenPanel(self, panel: str) -> None:
         if panel not in {"controls", "external"}:
             return
         if not self.loaded:
