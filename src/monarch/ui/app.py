@@ -4,8 +4,10 @@ import os
 import sys
 from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from monarch.resources import APP_ID, icon_path
 from monarch.ui.theme import ThemeController, discover_system_plugins
 from monarch.ui.window import MainWindow
 from monarch.ui.worker import BackendThread
@@ -14,6 +16,8 @@ from monarch.ui.worker import BackendThread
 def configure_app(app: QApplication) -> None:
     app.setApplicationName("Monarch")
     app.setOrganizationName("Monarch")
+    app.setDesktopFileName(APP_ID)
+    app.setWindowIcon(QIcon.fromTheme(APP_ID, QIcon(icon_path())))
     # Native fonts, palette and widget rendering belong to the selected Qt theme.
 
 

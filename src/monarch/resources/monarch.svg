@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Monarch</title>
+  <rect x="8" y="36" width="112" height="72" rx="14" fill="#1c1935"/>
+  <rect x="12" y="40" width="104" height="64" rx="10" fill="#8464db"/>
+  <rect x="20" y="48" width="88" height="48" rx="5" fill="#30254f"/>
+  <path d="M35 60 48 70 64 48 80 70 93 60 86 86H42Z" fill="#f4cd70"/>
+  <path d="M55 108h18v8h17v6H38v-6h17Z" fill="#8464db"/>
+  <circle cx="35" cy="59" r="4" fill="#f4cd70"/>
+  <circle cx="64" cy="46" r="4" fill="#f4cd70"/>
+  <circle cx="93" cy="59" r="4" fill="#f4cd70"/>
+</svg>

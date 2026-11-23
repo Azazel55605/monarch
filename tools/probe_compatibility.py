@@ -69,7 +69,7 @@ def run() -> None:
             "basic_guard_apply_and_revert": True,
             "native_mirror_id_resolution_and_revert": True,
         }
-        artifact = Path("/tmp/monarch-phase6")
+        artifact = Path(os.environ.get("MONARCH_PROBE_ARTIFACT_DIR", "/tmp/monarch-phase6"))
         artifact.mkdir(exist_ok=True)
 
         def finish():
@@ -82,6 +82,17 @@ def run() -> None:
                 if time.monotonic() > deadline:
                     raise RuntimeError(f"Read-only native probe timed out at {stage}")
                 if stage == 0 and window.ready:
+                    from monarch.resources import APP_ID
+                    from monarch.ui.help import HelpDialog
+
+                    assert app.desktopFileName() == APP_ID
+                    assert not app.windowIcon().pixmap(48, 48).isNull()
+                    for notices in (False, True):
+                        help_dialog = HelpDialog(notices=notices, parent=window)
+                        help_dialog.show()
+                        assert len(help_dialog.document.toPlainText()) > 500
+                        help_dialog.close()
+                    results["native_desktop_identity_icon_and_offline_help"] = True
                     window.select_display("MONARCH-A")
                     window.show_advanced()
                     stage = 1

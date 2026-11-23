@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "monarch-displays"
-version = "0.1.0.dev6"
+version = "0.1.0rc1"
 description = "A native Qt monitor editor for Hyprland with guarded previews and Lua integration"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "Monarch contributors"}]
-classifiers = ["Development Status :: 2 - Pre-Alpha", "Operating System :: POSIX :: Linux", "Programming Language :: Python :: 3"]
+classifiers = ["Development Status :: 3 - Alpha", "Operating System :: POSIX :: Linux", "Programming Language :: Python :: 3"]
 dependencies = []
 
 [project.optional-dependencies]
@@ -45,3 +45,13 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 python_version = "3.12"
 strict = true
 files = ["src/monarch"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"packaging/org.monarch.Monarch.desktop" = "share/applications/org.monarch.Monarch.desktop"
+"src/monarch/resources/monarch.svg" = "share/icons/hicolor/scalable/apps/org.monarch.Monarch.svg"
+"LICENSE" = "share/licenses/monarch-displays/LICENSE"
+"THIRD_PARTY_NOTICES.md" = "share/doc/monarch-displays/THIRD_PARTY_NOTICES.md"
+"src/monarch/resources/guide.md" = "share/doc/monarch-displays/quick-start.md"
+"CHANGELOG.md" = "share/doc/monarch-displays/CHANGELOG.md"
+"docs/testing-guide.md" = "share/doc/monarch-displays/testing-guide.md"
+"docs/release-checklist.md" = "share/doc/monarch-displays/release-checklist.md"

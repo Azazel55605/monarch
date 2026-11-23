@@ -1,0 +1,30 @@
+# Monarch local testing recipe. Generated with an exact source-archive checksum.
+# Not submitted to the AUR. No release tag or remote release asset is assumed.
+pkgname=monarch-displays
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Native Qt monitor profiles and guarded previews for Hyprland'
+arch=('any')
+url='https://github.com/Azazel55605/monarch'
+license=('MIT')
+depends=('python>=3.12' 'pyside6>=6.8' 'pyside6<7' 'qt6-svg' 'hicolor-icon-theme' 'hyprland')
+makedepends=('python-build' 'python-installer' 'python-hatchling')
+checkdepends=('python-pytest' 'python-pytest-qt' 'desktop-file-utils')
+source=("monarch_displays-${pkgver}.tar.gz")
+sha256sums=('@SHA256@')
+
+build() {
+    cd "monarch_displays-${pkgver}"
+    /usr/bin/python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "monarch_displays-${pkgver}"
+    desktop-file-validate packaging/org.monarch.Monarch.desktop
+    PYTHONPATH=src QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyside6 /usr/bin/python -m pytest -q
+}
+
+package() {
+    cd "monarch_displays-${pkgver}"
+    /usr/bin/python -m installer --destdir="$pkgdir" dist/*.whl
+}

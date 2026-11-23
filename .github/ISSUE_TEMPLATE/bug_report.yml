@@ -1,0 +1,36 @@
+name: Testing feedback or bug
+description: Candidate behavior, reproducible steps and redacted evidence
+title: "[Testing] "
+body:
+  - type: markdown
+    attributes:
+      value: "Review reports before sharing. Omit serials, EDID, private config, raw logs and credentials."
+  - type: input
+    id: version
+    attributes:
+      label: Monarch version and installation source
+      placeholder: "0.1.0rc1, native Arch package / isolated wheel / checkout"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Generic setup and evidence layer
+      description: "Hyprland/Python/Qt versions, generic display count/scales, and physical vs nested/offscreen."
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps, expected behavior and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Keep/Revert, recovery and timing
+      description: "Did it revert? Was this a fresh login, docking, resume or repeated event?"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Reviewed redacted diagnostics
+      description: "Use monarch diagnose or Help → Redacted diagnostics. Attach only after review."
+      render: json

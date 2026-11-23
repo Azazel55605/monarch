@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Monarch
+GenericName=Monitor Manager
+Comment=Arrange Hyprland displays with guarded profiles
+Exec=monarch gui --tray
+TryExec=monarch
+Icon=org.monarch.Monarch
+Terminal=false
+Categories=Settings;HardwareSettings;Qt;
+Keywords=monitor;display;screen;Hyprland;profile;
+StartupNotify=true
+Actions=Minimized;
+
+[Desktop Action Minimized]
+Name=Open minimized with tray
+Exec=monarch automation run
+Icon=org.monarch.Monarch

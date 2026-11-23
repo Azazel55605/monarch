@@ -3,12 +3,21 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 6 implemented — compatibility and diagnostics alpha (`0.1.0.dev6`).**
+**Status: Phase 7 testing candidate — `0.1.0rc1`.**
 Named profiles, guarded quick switching and opt-in automatic previews are available.
 Physical dock/resume acceptance remains open in the tracker. There is no stable
-release or published Arch/AUR package yet.
+release or AUR submission. A native Arch testing package can now be built or
+downloaded from successful CI runs. See the [installation/testing guide](docs/testing-guide.md).
 
 ![Monarch showing advanced-state observations and write gates](docs/assets/monarch-advanced.png)
+
+## Install and test
+
+For Arch/Garuda, follow the [candidate installation guide](docs/testing-guide.md).
+The package supplies a **Monarch** application-menu entry, icon and tray. Native
+Qt dependencies come from the distro. Offline help is available in the GUI and
+through `monarch help`; [license notices](THIRD_PARTY_NOTICES.md) accompany the build.
+This is the feedback candidate, not a tagged stable release.
 
 ## Run the editor
 
@@ -70,7 +79,8 @@ config targets additionally require the verified hyprutils search implementation
 other setups remain inspectable. Advanced HDR, VRR, color and custom modeline
 rules are outside the desktop integration contract. Active VRR, non-8-bit formats,
 non-sRGB/default SDR state or unknown required observations block the basic guard.
-Advanced writes are explicitly deferred; release packaging remains planned.
+Advanced writes are explicitly deferred. [Release gates](docs/release-checklist.md)
+remain open for physical/user acceptance; candidate packaging is available.
 
 ## Validation
 
@@ -80,6 +90,8 @@ scales. Read-only GUI startup was also checked on a physical three-output deskto
 Those are separate evidence layers: physical mode changes, docking/resume,
 hardware failure recovery and the full release matrix are not certified.
 
+- [Phase 7 packaging evidence](docs/phase-7-report.md)
+- [Testing and feedback](docs/testing-guide.md)
 - [Phase 6 evidence and advanced-write deferrals](docs/phase-6-report.md)
 - [Phase 5 evidence and open hardware gate](docs/phase-5-report.md)
 - [Phase 4 evidence](docs/phase-4-report.md)

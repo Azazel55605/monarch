@@ -20,7 +20,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | 4 — Profiles/quick switch | Done | [Phase 4 evidence](phase-4-report.md) |
 | 5 — Automatic switching | In progress | [Software and virtual-hotplug evidence](phase-5-report.md); physical dock/resume/login gate open |
 | 6 — Advanced settings | Done | [Phase 6 evidence](phase-6-report.md); read-only gates/diagnostics and explicit advanced-write deferrals |
-| 7 — Packaging/release | Planned | None |
+| 7 — Packaging/release | In progress | [Testing candidate](phase-7-report.md); installed-session/physical acceptance and stable release gates open |
 
 ## Tasks
 
@@ -53,17 +53,24 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M6.1 | Capability-gated advanced controls and recovery | Done | [Observed state/gates](../src/monarch/domain/advanced.py), [guard tests](../tests/test_advanced.py); advanced writes explicitly deferred with evidence requirements |
 | M6.2 | Compatibility policy and scope decisions | Done | [Compatibility guide](phase-6-guide.md), tagged mirror-ID normalization; legacy writer/modelines deferred |
 | M6.3 | Redacted diagnostics and error/help polish | Done | [Read-only collector](../src/monarch/services/diagnostics.py), [privacy/export tests](../tests/test_diagnostics.py), native Qt/physical read-only report checks |
-| M7.1 | Desktop assets, notices, help and Arch PKGBUILD | Planned | Packaging review; no implied AUR publication |
-| M7.2 | Clean install/uninstall and full native acceptance | Planned | [Validation matrix](validation.md), limitations recorded |
-| M7.3 | CI artifacts, changelog and release readiness | Planned | Reproducible artifacts and completed release checklist |
+| M7.1 | Desktop assets, notices, help and Arch PKGBUILD | Done | [Resources](../src/monarch/resources/guide.md), [native recipe](../packaging/arch/PKGBUILD.in), [testing guide](testing-guide.md); no AUR submission |
+| M7.2 | Clean install/uninstall and full native acceptance | In progress | [Packaging evidence](phase-7-report.md); clean package checks delivered, installed physical-session acceptance pending |
+| M7.3 | CI artifacts, changelog and release readiness | In progress | [CI artifacts](../.github/workflows/checks.yml), [changelog](../CHANGELOG.md), [release checklist](release-checklist.md); stable promotion awaits acceptance/authorization |
 
 ## Current next action
 
-Complete the Phase 5 physical dock/resume/fresh-login gate on a reviewed basic
-monitor configuration. Software is implemented and opt-in; no host settings were
-enabled or changed during implementation. See the [guide](phase-5-guide.md) and
-[report](phase-5-report.md). Phase 6 observation/compatibility work is complete with
-advanced writes explicitly deferred. Phase 7 packaging remains planned.
+Test the `0.1.0rc1` candidate and collect user feedback using the
+[testing guide](testing-guide.md). Record actual installed-session/physical basic
+mode, dock/resume and fresh-login acceptance before stable release promotion.
+Advanced writes remain deferred pending per-option hardware recovery evidence;
+additional advanced work follows the feedback cycle. No stable tag/publication or
+AUR submission has been performed.
+
+## Phase 7 candidate checks
+
+See the [Phase 7 report](phase-7-report.md) for source/wheel assets, native Arch
+package, clean install/removal, installed payload/native evidence and CI artifacts.
+Packaging availability is separate from the user's proper test and release gate.
 
 ## Phase 6 checks
 

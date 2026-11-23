@@ -77,6 +77,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--version", action="version", version=f"Monarch {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
+    help_command = commands.add_parser("help", help="Read the bundled quick start or notices")
+    help_command.add_argument("--notices", action="store_true", help="Show dependency notices")
     inspect = commands.add_parser("inspect", help="Inspect connected and disabled outputs")
     inspect.add_argument(
         "--json", action="store_true", help="JSON; one object per line with --watch"
@@ -112,6 +114,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     add_profile_commands(commands)
     add_automation_commands(commands)
     args = parser.parse_args(argv)
+    if args.command == "help":
+        from monarch.resources import text
+
+        print(text("notices.md" if args.notices else "guide.md"))
+        return 0
     if (
         args.command == "profile"
         and args.profile_action == "switch"

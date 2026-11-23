@@ -5,7 +5,7 @@ and [progress tracker](docs/progress.md). Keep changes focused on a task ID;
 record the evidence required to mark it done. Discuss architectural departures
 and new scope before treating them as accepted roadmap changes.
 
-Once source code exists, keep domain logic independent of Qt and compositor I/O.
+Keep domain logic independent of Qt and compositor I/O.
 Use typed models, bounded subprocess calls, explicit configuration ownership, and
 the shared apply/recovery coordinator. Do not add an alternate mutation path for
 a CLI, tray action, or automation rule.
@@ -76,3 +76,12 @@ distinguish observations, hardware advertisements and validated writes. Advanced
 writes remain deferred; do not use virtual-output success to enable physical
 VRR/HDR/ICC/depth controls. Public diagnostic fixtures must test injected secrets,
 unknown strings and no collection-time directory creation.
+
+Phase 7 builds source/wheel assets with `tools/check_artifacts.py` and native Arch
+packages with `tools/build_arch_package.py`. The disposable container exercises
+makepkg checks, actual pacman install/removal and installed Qt/help resources.
+`/usr/bin/python tools/probe_package.py --prefix /path/to/extracted/package` runs
+the native compatibility probe against that package payload and independent guard,
+without installing it on the host. Keep container lifecycle, staged native Wayland
+and physical installed-session acceptance distinct. See the
+[testing guide](docs/testing-guide.md) and [release checklist](docs/release-checklist.md).

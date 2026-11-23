@@ -36,10 +36,12 @@ from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
 from monarch.errors import MonarchError
+from monarch.resources import APP_ID, icon_path
 from monarch.ui.automation import AutomationDialog
 from monarch.ui.canvas import LayoutCanvas
 from monarch.ui.diagnostics import AdvancedDialog, DiagnosticsDialog
 from monarch.ui.dialogs import ConfirmationDialog, IntegrationDialog
+from monarch.ui.help import HelpDialog
 from monarch.ui.identify import Identification
 from monarch.ui.model import EditorModel
 from monarch.ui.profiles import MappingDialog, ProfileBar
@@ -87,6 +89,8 @@ class MainWindow(QMainWindow):
             appearance = self.menuBar().addMenu("Appearance")
             theme.menu(appearance)
         help_menu = self.menuBar().addMenu("Help")
+        help_menu.addAction("Quick start and recovery…", lambda: self.show_help())
+        help_menu.addAction("About and license notices…", lambda: self.show_help(notices=True))
         self.diagnostics_action = help_menu.addAction(
             "Redacted diagnostics…", self.show_diagnostics
         )
@@ -137,7 +141,7 @@ class MainWindow(QMainWindow):
         self.tray_menu: QMenu | None = None
         if tray_enabled:
             self.tray = QSystemTrayIcon(self)
-            icon = QIcon.fromTheme("video-display")
+            icon = QIcon.fromTheme(APP_ID, QIcon(icon_path()))
             if icon.isNull():
                 icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
             self.tray.setIcon(icon)
@@ -527,6 +531,10 @@ class MainWindow(QMainWindow):
             "recovery" in self.ownership_reason.lower()
             or "unfinished" in self.ownership_reason.lower()
         )
+
+    def show_help(self, *, notices: bool = False) -> None:
+        self.help_dialog = HelpDialog(notices=notices, parent=self)
+        self.help_dialog.show()
 
     def show_advanced(self) -> None:
         state = AdvancedState()
