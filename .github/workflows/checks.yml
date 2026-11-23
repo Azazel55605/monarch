@@ -17,6 +17,8 @@ jobs:
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: '0.13.9'
+      - name: Install Qt graphics libraries
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0
       - run: uv sync --locked --extra gui --group gui-dev --python ${{ matrix.python }}
       - run: uv run --extra gui --group gui-dev ruff check .
       - run: uv run --extra gui --group gui-dev ruff format --check .

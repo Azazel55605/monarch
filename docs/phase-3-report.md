@@ -49,7 +49,10 @@ The prior recovery/subprocess/PTY suite remains included.
 
 Qt automated tests run with `QT_QPA_PLATFORM=offscreen`; they do not certify Wayland
 placement or physical monitor changes. Hosted CI is tracked separately from local
-results, including its Qt installation and package build steps.
+results, including its Qt installation and package build steps. The first hosted
+run exposed missing `libEGL.so.1` on the Ubuntu runner before test collection;
+the workflow explicitly installs the Qt graphics libraries. Local Arch checks
+were unaffected.
 
 ## Native Qt/Wayland acceptance
 
