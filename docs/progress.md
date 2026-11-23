@@ -70,7 +70,9 @@ AUR submission has been performed.
 
 `0.1.0rc2` implements close-to-tray lifetime, explicit Quit/no-host fallback,
 contrasting monitor outlines, and live zoom-aware edge snapping. See the
-[feedback changes and validation](rc2-feedback.md). Automatic integration of newly
+[feedback changes and validation](rc2-feedback.md). All 242 tests passed on hosted
+Python 3.12–3.14 and the clean Arch build/install/removal job on `3024b18`;
+source/wheel/native artifacts were downloaded and verified. Automatic integration of newly
 attached unknown external displays remains a future request; the existing watcher
 continues discovery while hidden. VRR preservation remains the next write-path
 blocker to investigate. Physical acceptance gates remain open.

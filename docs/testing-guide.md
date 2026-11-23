@@ -9,7 +9,8 @@ also hit virtual-output creation/mirror timeouts; see the [evidence report](phas
 
 The package uses distro Python and PySide6/Qt instead of bundling Qt wheels.
 Update the system through its normal package-management workflow before building.
-From a checkout:
+Before upgrading an existing installation, use Quit Monarch from each running
+tray instance. Reopen after installation to load the new version. From a checkout:
 
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
