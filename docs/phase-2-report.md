@@ -63,8 +63,10 @@ links after replacement; linked copies with more than one link remain rejected.
 No claim of cross-process filesystem CAS is made against uncooperative writers.
 Cooperating Monarch clients serialize through the guard's session lock.
 
-Hosted CI is tracked independently; a local pass is not a hosted pass. The first
-published Phase 2 commit's Actions run will provide the hosted matrix evidence.
+Hosted CI also passed the full matrix on implementation commit `a048e09`:
+[Checks run 45157196053](https://github.com/Azazel55605/monarch/actions/runs/45157196053).
+All Python 3.12/3.13/3.14 jobs passed lint, format, typing, tests, and package builds.
+Later commit status is tracked independently in GitHub Actions.
 
 ## Native isolated acceptance
 

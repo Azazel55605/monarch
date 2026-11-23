@@ -68,7 +68,8 @@ acceptance, and release gates remain open.
 
 See the [Phase 2 report](phase-2-report.md) for automated and installed-wheel
 results, real nested Wayland preview/recovery/persistence/fault checks, and the
-owned-session compatibility boundary. The independent guard survives client death;
+owned-session compatibility boundary. [Hosted CI](https://github.com/Azazel55605/monarch/actions/runs/45157196053)
+also passed all three Python versions on `a048e09`. The independent guard survives client death;
 guard death retains durable manual recovery. No parent monitor settings changed.
 
 ## Phase 1 checks
