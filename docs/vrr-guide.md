@@ -49,8 +49,7 @@ output rules explicitly include `vrr=0` or `vrr=1`, so their policy does not dep
 on a global fallback. Hyprland 0.57.2's Lua API can merge fields into an existing
 same-selector monitor rule; omission alone does not prove that an earlier rule was
 cleared. Runtime output-management overrides can also affect the effective rule.
-A config edit is not proof of live state. Earlier advice attributing every override
-to wholesale rule replacement was incomplete.
+A config edit is not proof of live state.
 
 Observed profile capture in the GUI uses only policy tied to the verified managed
 baseline or a confirmed layout bound to the same compositor generation and file
@@ -90,12 +89,13 @@ Hyprland parser on owned virtual outputs. It does **not** certify hardware VRR.
 A separate native Qt/Wayland check uses synthetic monitor data and starts no
 monitor worker. Physical target-panel testing remains the next user feedback gate.
 
-Local validation: 262 functional tests passed; the remaining offline-help content
-check passed after restoring its Advanced settings navigation text. Ruff lint/format
-and strict mypy (50 source files) pass. Native virtual Lua parsing and native Qt
-VRR control/draft checks passed with zero parent monitor mutations. Hosted full-suite
-and Arch candidate results are recorded after completion.
-
-References: [Hyprland monitor rules](https://wiki.hypr.land/configuring/core/monitors/),
-[0.57.2 Lua rule implementation](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/lua/bindings/LuaBindingsConfigRules.cpp),
-and [0.57.2 VRR application](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/config/shared/monitor/MonitorRuleManager.cpp).
+[Final hosted CI on `2ba3478`](https://github.com/Azazel55605/monarch/actions/runs/45237720816)
+passed **all 263 tests** on Python 3.12, 3.13 and 3.14 and through Arch makepkg/check.
+Actual pacman installation/removal, installed help/icon/Qt checks, Ruff and strict
+mypy (50 source files) passed. Candidate source/wheel/native artifacts uploaded.
+The downloaded package, wheel/source checksums and source manifest verified;
+installed application modules/resources match the tested source. An isolated
+installed-wheel CLI check also verified explicitly declared On capture and rejection
+of an undeclared active policy. Native virtual Lua parsing and native Qt control/
+draft checks passed with zero parent monitor mutations. No host package was installed
+and physical VRR Keep/Revert/persistence remains the next user acceptance gate.

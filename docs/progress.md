@@ -74,6 +74,10 @@ journals remain readable. [Current behavior and evidence](vrr-guide.md) supersed
 the Phase 6 VRR deferral; target physical VRR acceptance remains **In progress**.
 Conditional policies are not inferred from active state and remain deferred.
 The software gate no longer rejects an owned and observed VRR On baseline.
+[Hosted CI on `2ba3478`](https://github.com/Azazel55605/monarch/actions/runs/45237720816)
+passed all 263 tests on Python 3.12–3.14 and the clean Arch install/removal job.
+Candidate checksums, source manifest and installed application payload were verified;
+native Lua parser and Qt draft/control checks passed without parent monitor writes.
 
 ## Tray and canvas feedback follow-up
 
