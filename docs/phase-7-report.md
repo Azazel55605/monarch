@@ -49,6 +49,26 @@ retention of separate user-data markers. No application install/remove hook edit
 user Lua, profiles, journals or autostart. Manual integration cleanup and recovery
 precautions are documented rather than hidden in a package-removal script.
 
+## Native candidate results
+
+The extracted Arch payload imported from its staged system site-packages (not
+the checkout), using system Python 3.14.10 and PySide6 6.12.0. A native Wayland Qt
+window, desktop ID, rendered icon and both offline help/notices documents passed;
+the standalone UI check started no monitor worker. No host package was installed
+and no parent monitor setting was changed.
+
+The full packaged nested-compositor probe is **not a pass**: one attempt timed
+out creating a headless output; a retry passed basic guarded apply/revert and then
+timed out during mirror application (`apply_failed`, hyprctl timeout). This is
+recorded as an unresolved virtual/native acceptance result, alongside the earlier
+Phase 4 disable/re-enable timeout. Prior Phase 6 mirror success does not certify
+this candidate run. Do not claim the complete native matrix or stable gate closed.
+
+Clean Arch makepkg/check, actual pacman install, installed command/help/icon/Qt/
+diagnostics, and pacman removal all passed. Application files were removed while
+external simulated user data remained. Namcap reports no packaging errors after
+the hicolor dependency correction; remaining warnings are retained for review.
+
 ## Packaging review
 
 Namcap detects the required hicolor theme hierarchy dependency; it is explicitly

@@ -53,7 +53,10 @@ PY
 pacman -Ql monarch-displays > /build/installed-files.txt
 pacman -R --noconfirm monarch-displays
 hash -r
-! command -v monarch
+[[ ! -e /usr/bin/monarch ]]
+if command -v monarch >/dev/null; then
+    exit 1
+fi
 [[ ! -e /usr/share/applications/org.monarch.Monarch.desktop ]]
 [[ ! -e /usr/share/icons/hicolor/scalable/apps/org.monarch.Monarch.svg ]]
 [[ $(cat /tmp/monarch-removal-user-data/profiles.json) == 'preserve profiles' ]]

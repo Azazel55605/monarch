@@ -19,7 +19,7 @@ instruction. AUR and PyPI publication are separate, unperformed actions.
 - [ ] Physical basic-setting Keep/Revert/persistence and client-loss acceptance recorded.
 - [ ] Physical dock/undock, repeated events and suspend/resume accepted (Phase 5 gate).
 - [ ] Fresh login/startup enable-disable accepted on the target session host.
-- [ ] Current virtual disable/re-enable timeout resolved or explicitly scoped for release.
+- [ ] Current virtual disable/re-enable and candidate mirror/output-creation timeouts resolved or explicitly scoped for release.
 - [ ] Package accepted on the target installed Arch/Garuda session; desktop/tray behavior checked.
 - [ ] Final license/dependency notices and the exact artifacts selected for publication reviewed.
 - [ ] Explicit authorization to promote/tag/publish a stable release received.

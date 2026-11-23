@@ -2,7 +2,8 @@
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
-acceptance and advanced display writes remain open.
+acceptance and advanced display writes remain open. The candidate nested probe
+also hit virtual-output creation/mirror timeouts; see the [evidence report](phase-7-report.md).
 
 ## Install on Arch/Garuda
 
