@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QListWidget,
     QMainWindow,
     QMenu,
@@ -56,6 +57,7 @@ from monarch.ui.worker import BackendThread
 
 class MainWindow(QMainWindow):
     preview_requested = Signal(object)
+    quick_panel_closed = Signal()
 
     def __init__(
         self,
@@ -696,10 +698,19 @@ class MainWindow(QMainWindow):
         if self.quick_panel:
             self.quick_panel.close()
         self.quick_panel = dialog
-        dialog.finished.connect(lambda: setattr(self, "quick_panel", None))
+        # Equal min/max size tells Hyprland this is a compact floating dialog.
+        layout = dialog.layout()
+        assert layout is not None
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        dialog.adjustSize()
+        dialog.finished.connect(self.quick_panel_finished)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    def quick_panel_finished(self) -> None:
+        self.quick_panel = None
+        self.quick_panel_closed.emit()
 
     def show_quick_panel(self) -> None:
         if self.model.busy:

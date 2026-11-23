@@ -858,6 +858,10 @@ def test_gui_tray_default_and_explicit_opt_out(monkeypatch):
     assert calls[-1]["tray"] is True
     assert main(["gui", "--no-tray"]) == 0
     assert calls[-1]["tray"] is False
+    assert main(["quick"]) == 0
+    assert calls[-1]["quick_panel"] == "controls"
+    assert main(["quick", "--external"]) == 0
+    assert calls[-1]["quick_panel"] == "external"
 
 
 def test_selecting_nearby_monitor_does_not_snap_or_change_layout(qtbot):
@@ -949,6 +953,7 @@ def test_external_display_bar_builds_guarded_preview(qtbot, inspection):
     widget.show_external_panel()
     panel = widget.quick_panel
     assert isinstance(panel, ExternalDialog)
+    assert panel.minimumSize() == panel.maximumSize()
     target = inspection.monitors[1].name
     anchor = inspection.monitors[0].name
     panel.target.setCurrentText(target)

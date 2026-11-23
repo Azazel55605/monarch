@@ -123,6 +123,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_false",
         help="Exit when the editor closes",
     )
+    quick = commands.add_parser("quick", help="Open Monarch’s compact quick controls")
+    quick.add_argument("--external", action="store_true", help="Open the external display bar")
     add_commands(commands)
     add_profile_commands(commands)
     add_automation_commands(commands)
@@ -141,12 +143,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--map and --seconds require --terminal; GUI switches offer a mapping dialog.")
     if (
         (args.command == "automation" and args.automation_action == "run")
-        or args.command == "gui"
+        or args.command in {"gui", "quick"}
         or (args.command == "profile" and args.profile_action == "switch" and not args.terminal)
     ):
         try:
             from monarch.ui.app import launch
 
+            if args.command == "quick":
+                return launch(quick_panel="external" if args.external else "controls")
             if args.command == "automation":
                 Session.from_environment()  # Login entries exit without Qt outside Hyprland.
                 return launch(tray=True, background=True, profile_directory=args.store)

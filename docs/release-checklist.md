@@ -1,6 +1,6 @@
 # Candidate and release checklist
 
-Version: `0.1.0rc5`. This is the testing handoff; **v0.1.0 is not tagged or published**.
+Version: `0.1.0rc6`. This is the testing handoff; **v0.1.0 is not tagged or published**.
 The implementation plan reserves release tagging/publication for a later explicit
 instruction. AUR and PyPI publication are separate, unperformed actions.
 

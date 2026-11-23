@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0rc6
+
+- Quick controls and the external display bar open as compact floating panels on
+  Hyprland. Use `monarch quick` or `monarch quick --external` to open either panel
+  from a terminal or keybind. The commands reuse the running tray instance over
+  the session bus when available.
+
 ## 0.1.0rc5
 
 - Display controls grow with the sidebar and scroll when window height is limited.

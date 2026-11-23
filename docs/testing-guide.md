@@ -1,4 +1,4 @@
-# Testing the 0.1.0rc5 candidate
+# Testing the 0.1.0rc6 candidate
 
 This candidate is for installation and user feedback. It is not a tagged stable
 release, a PyPI publication, or an AUR submission. Physical docking/resume/login
@@ -15,8 +15,8 @@ tray instance. Reopen after installation to load the new version. From a checkou
 ```sh
 sudo pacman -S --needed base-devel python-build python-installer python-hatchling python-pytest python-pytest-qt pyside6 qt6-svg hicolor-icon-theme hyprland desktop-file-utils
 uv build --out-dir dist/candidate
-python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc5.tar.gz
-sudo pacman -U dist/arch/monarch-displays-0.1.0rc5-1-any.pkg.tar.zst
+python tools/build_arch_package.py --sdist dist/candidate/monarch_displays-0.1.0rc6.tar.gz
+sudo pacman -U dist/arch/monarch-displays-0.1.0rc6-1-any.pkg.tar.zst
 ```
 
 Review `packaging/arch/PKGBUILD.in` and the generated `dist/arch/PKGBUILD` first.
@@ -52,7 +52,7 @@ this checkout's built wheel:
 
 ```sh
 python -m venv /path/to/monarch-test
-/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc5-py3-none-any.whl[gui]'
+/path/to/monarch-test/bin/python -m pip install 'dist/candidate/monarch_displays-0.1.0rc6-py3-none-any.whl[gui]'
 /path/to/monarch-test/bin/monarch gui --tray
 ```
 
@@ -143,3 +143,30 @@ from the owned baseline and unrecognized by the profile catalog. It extends them
 to the right and ranks modes by pixel area, then refresh rate. A saved display
 with no eligible profile and a tie between eligible profiles retain their
 current settings. Keep applies the automatic suggestion for this session.
+
+
+Use `monarch quick` to open the profile panel from a terminal, or
+`monarch quick --external` for the Extend/Duplicate bar. If Monarch is running
+in the current Hyprland session, the command opens the panel in that instance.
+
+Hyprland 0.57.2 Lua keybind examples:
+
+```lua
+hl.bind("SUPER + P", hl.dsp.exec_cmd("monarch quick"))
+hl.bind("SUPER + SHIFT + P", hl.dsp.exec_cmd("monarch quick --external"))
+```
+
+The panels size themselves to their contents and Hyprland floats them by default.
+If your existing window rules force tiling, add a more specific rule:
+
+```lua
+hl.window_rule({
+    name = "monarch-quick-panels",
+    match = {
+        class = "^org[.]monarch[.]Monarch$",
+        initial_title = "^(Monarch quick controls|External display layout)$",
+    },
+    float = true,
+    center = true,
+})
+```
