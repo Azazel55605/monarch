@@ -1,4 +1,4 @@
-"""Read-only CLI. The future monitor editor is not exposed yet."""
+"""Inspection and guarded CLI previews; the Qt editor is a later phase."""
 
 import argparse
 import asyncio
@@ -16,6 +16,7 @@ from monarch.backends.hyprland.events import EventWatcher
 from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.errors import MonarchError
+from monarch.services.cli import add_commands, execute
 
 
 def report(inspection: Inspection, *, identifiers: bool = False) -> dict[str, Any]:
@@ -129,7 +130,9 @@ def positive_timeout(value: str) -> float:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Monarch: read-only Hyprland monitor inspection")
+    parser = argparse.ArgumentParser(
+        description="Monarch: Hyprland monitor inspection and guarded previews"
+    )
     parser.add_argument("--version", action="version", version=f"Monarch {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     inspect = commands.add_parser("inspect", help="Inspect connected and disabled outputs")
@@ -153,9 +156,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=3.0,
         help="Per-command timeout in seconds (default: 3)",
     )
+    add_commands(commands)
     args = parser.parse_args(argv)
     try:
-        return asyncio.run(inspect_command(args))
+        return asyncio.run(inspect_command(args) if args.command == "inspect" else execute(args))
+    except OSError:
+        print("Monarch: storage or session access failed; check permissions.", file=sys.stderr)
+        return 2
     except MonarchError as exc:
         print(f"Monarch: {exc}", file=sys.stderr)
         return 2

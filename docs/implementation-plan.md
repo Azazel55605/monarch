@@ -1,6 +1,7 @@
 # Phased implementation plan
 
-Created: 2026-11-23. Phase 1 feasibility findings incorporated on 2026-11-23.
+Created: 2026-11-23. Phase 1 feasibility and Phase 2 ownership decisions
+incorporated on 2026-11-23.
 Status is maintained in the [progress tracker](progress.md).
 This plan scopes a Python/PySide6 application for Hyprland on Arch-based Linux.
 [Architecture](architecture.md), [compatibility research](compatibility.md), and
@@ -55,6 +56,12 @@ client-crash recovery, and managed-file rollback are demonstrated. Block any
 layout which cannot leave or restore a usable output.
 
 ## Phase 3 — Usable Qt manual editor
+
+Phase 2's writer intentionally accepts only an exact minimal owned config root.
+Design explicit normal-desktop integration and its recovery contract before
+exposing persistence/apply in the GUI. Do not bypass ownership validation to accept
+arbitrary existing Lua. The guard/coordinator are the shared application API.
+
 
 Deliver the main window, proportional layout canvas, drag/snapping and numeric
 positioning, monitor identification, enable/disable, mode/refresh, scale,

@@ -35,13 +35,24 @@ class Hyprctl:
 
     async def read(self, *command: str) -> Any:
         if command not in READ_COMMANDS:
-            raise MonarchError("Command rejected: Phase 1 permits read-only discovery only.")
+            raise MonarchError(
+                "Command rejected: the inspection transport permits read-only discovery only."
+            )
+        raw = await self._request(command, json_output=True)
+        try:
+            return json.loads(raw)
+        except (ValueError, UnicodeError) as exc:
+            raise MonarchError(
+                "hyprctl returned invalid JSON for " + " ".join(command) + "."
+            ) from exc
+
+    async def _request(self, command: tuple[str, ...], *, json_output: bool = False) -> bytes:
         try:
             process = await asyncio.create_subprocess_exec(
                 self.executable,
                 "-i",
                 self.session.signature,
-                "-j",
+                *(["-j"] if json_output else []),
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -74,12 +85,7 @@ class Hyprctl:
                 await process.wait()
             if process.returncode != 0:
                 raise MonarchError("hyprctl request failed. Check the selected Hyprland session.")
-            try:
-                return json.loads(stdout)
-            except (ValueError, UnicodeError) as exc:
-                raise MonarchError(
-                    "hyprctl returned invalid JSON for " + " ".join(command) + "."
-                ) from exc
+            return stdout
         except TimeoutError as exc:
             raise MonarchError("hyprctl timed out; the compositor may be unavailable.") from exc
         finally:

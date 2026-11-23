@@ -85,3 +85,16 @@ signature requires a new invocation; discovery never silently crosses sessions.
 PySide6 6.12.0 is available on the native test host, but no GUI has been implemented
 or tested. The planned GUI dependency range is 6.8 through Qt 6; this is not yet
 a certified Qt-version matrix.
+
+## Phase 2 write boundary
+
+The inspection transport retains its read-only allowlist. A separate typed writer
+is used by the independently locked guard; the CLI offers no raw Lua or reload
+endpoint. Writes require a clean 0.57.2 tag, the reported Lua provider, a verified
+active config path, and an exact generated owned root. Existing full desktop
+configs are unsupported for mutation until explicit Phase 3 integration.
+
+[Phase 2 acceptance](phase-2-report.md) verifies preview/revert, timeout, client
+SIGKILL, persistence, failed persistence reload, guard SIGKILL/manual recovery,
+and virtual hot-unplug using a real nested compositor. It does not certify
+physical modes, mixed-GPU scanout, or recovery from hardware/compositor crashes.

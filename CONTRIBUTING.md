@@ -1,6 +1,6 @@
 # Contributing to Monarch
 
-Monarch has a read-only CLI foundation. Start with the [implementation plan](docs/implementation-plan.md)
+Monarch has inspection and guarded CLI preview foundations. Start with the [implementation plan](docs/implementation-plan.md)
 and [progress tracker](docs/progress.md). Keep changes focused on a task ID;
 record the evidence required to mark it done. Discuss architectural departures
 and new scope before treating them as accepted roadmap changes.
@@ -23,7 +23,10 @@ and redacted errors. Never include credentials.
 Use Python 3.12+ and uv 0.13.9 (the CI version). `uv sync --locked` installs the
 package and development dependencies. Run `uv run ruff check .`, `uv run ruff
 format --check .`, `uv run mypy`, `uv run pytest`, and `uv build` before submitting.
-The automated tests require no live compositor, Qt installation, or GPU.
+The automated tests require Linux (including `/proc` and PTYs), but no live
+compositor, Qt installation, or GPU. Guard integration tests launch an independent
+process and exercise client death, deadline enforcement, locking and terminal
+confirmation using a synthetic subprocess transport.
 
 For read-only native checks, run `uv run monarch inspect` in Hyprland. Reports
 redact identifying fields unless `--show-identifiers` is explicitly requested.
@@ -33,3 +36,11 @@ and terminates its own temporary nested Hyprland instance; it requires version
 performs mutations only after verifying that the new instance uses the Wayland
 backend and has a different signature from the parent. See the
 [Phase 1 report](docs/phase-1-report.md) for scope and limitations.
+
+The Phase 2 opt-in test is `uv run python tools/probe_recovery.py`. It uses a
+verified nested Wayland backend and virtual outputs, exercises real guarded
+previews/persistence/recovery, and includes an intentionally failed reload via a
+local subprocess wrapper. It requires render-device access, which may be absent
+in a sandbox. Keep that evidence separate from physical-output acceptance. See
+[Phase 2 evidence](docs/phase-2-report.md) and the [ownership contract](docs/phase-2-guide.md).
+Never remove or relax the owned-root check to make an arbitrary local config pass.

@@ -1,12 +1,13 @@
 # Monarch
 
-A Python and Qt monitor manager for Hyprland, starting with a read-only monitor
-inspector. Visual layout editing, Lua configuration, saved profiles, and quick
-setup switching are planned.
+A Python and Qt monitor manager for Hyprland. The CLI currently provides
+read-only inspection and guarded monitor previews in explicitly owned sessions.
+The visual editor, saved profiles, and quick setup switching are planned.
 
-**Status: Phase 1 implemented — read-only CLI foundation.**
-There is no monitor editor or stable release yet. The inspector can run from a
-source checkout; the features below describe later implementation phases.
+**Status: Phase 2 implemented — validated apply and independent recovery.**
+There is no Qt monitor editor or stable release yet. Normal desktop configuration
+integration belongs to Phase 3; the current write path requires a dedicated
+Monarch-owned configuration. The inspector works independently of that restriction.
 
 ## Planned features
 
@@ -30,8 +31,10 @@ models and policy logic will remain independent of Qt.
 
 Lua is the primary configuration path. Read-only discovery is verified on
 Hyprland 0.57.2, with isolated Lua feasibility tests in a nested Wayland session.
-Physical monitor editing and general rule restoration are not certified. See
-[Phase 1 evidence](docs/phase-1-report.md) and [compatibility research](docs/compatibility.md).
+Guarded apply/revert, client-crash recovery, persistence failure, and virtual
+hot-unplug are verified in a nested compositor. Physical mode changes and general
+rule restoration are not certified. See [Phase 2 evidence](docs/phase-2-report.md)
+and [compatibility research](docs/compatibility.md).
 
 ## Project documents
 
@@ -40,6 +43,8 @@ Physical monitor editing and general rule restoration are not certified. See
 - [Architecture and behavior](docs/architecture.md)
 - [Compatibility research](docs/compatibility.md)
 - [Validation strategy](docs/validation.md)
+- [Guarded CLI and ownership contract](docs/phase-2-guide.md)
+- [Phase 2 implementation evidence](docs/phase-2-report.md)
 - [Contributing](CONTRIBUTING.md)
 
 The first usable milestone is safe manual monitor editing (phases 1–3).
@@ -68,13 +73,41 @@ The inspector includes connected-but-disabled outputs, advertised modes and
 precise refresh rates. Default reports redact display identities and config
 paths. Use `--show-identifiers` to include them in JSON for local inspection.
 `--config /path/to/hyprland.lua` records an explicit path selection without reading
-or executing it. Unverified paths/providers remain clearly marked. No apply,
-reload, profile-switching or configuration-writing command is exposed.
+or executing it. Unverified paths/providers remain clearly marked. Inspection never applies or reloads configuration. Guarded writes use a separate
+coordinator and independently verify ownership; profile switching is not available.
 
 Watch mode refreshes after topology/config events and reconnects to the selected
 instance with bounded backoff. It remains bound to the startup session signature;
 a replacement compositor with a new signature requires restarting Monarch from
 that session. `--json --watch` emits one JSON object per line. Ctrl+C stops it.
+
+## Guarded previews
+
+Phase 2 adds strict layout validation, typed Lua generation, a separate recovery
+guard process, session locking, private journals/backups, atomic persistence, and
+explicit terminal confirmation. These primitives are shared with the future GUI.
+
+```sh
+uv run monarch layout capture --output ~/.config/monarch/layouts/current.json
+uv run monarch layout validate ~/.config/monarch/layouts/current.json
+uv run monarch transaction status
+```
+
+Captured layouts contain monitor identities and are stored privately. Mutation is
+restricted to a clean Hyprland 0.57.2 Lua session running an exact Monarch-owned
+minimal root. An existing desktop config is never adopted or overwritten. See the
+[guarded CLI guide](docs/phase-2-guide.md) before using `managed create`, `preview`,
+or `recover`.
+
+For the reproducible isolated acceptance test, with Wayland and render access:
+
+```sh
+uv run python tools/probe_recovery.py
+```
+
+It creates its own nested compositor and virtual outputs, exercises failure and
+recovery, then terminates that compositor. It does not change parent monitor
+settings. The GUI and normal save-on-login integration follow in Phase 3.
 
 ## Development
 
@@ -89,7 +122,7 @@ uv build
 
 The lock file pins the development tools. CI checks Python 3.12, 3.13 and 3.14.
 See [contributing](CONTRIBUTING.md) and the [Phase 1 report](docs/phase-1-report.md)
-for the opt-in nested compositor probe and the distinction between automated,
+and [Phase 2 evidence](docs/phase-2-report.md) for the opt-in native probes and the distinction between automated,
 nested-session, and physical-hardware evidence.
 
 ## License

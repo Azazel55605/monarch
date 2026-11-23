@@ -18,7 +18,9 @@ class Capabilities:
     stable_baseline: bool
     lua_advertised: bool
     mutation_allowed: bool = False
-    mutation_reason: str = "Phase 1 is read-only; complete rule restoration is not established."
+    mutation_reason: str = (
+        "Inspection is read-only; writes require a verified owned config and guard."
+    )
 
 
 @dataclass(frozen=True)

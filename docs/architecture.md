@@ -1,8 +1,9 @@
 # Architecture and intended behavior
 
-Status: Phase 1 read-only foundation implemented; later components remain a
-proposed design. The [feasibility report](phase-1-report.md) restricts the initial
-write path to explicitly owned configuration state. See [research](compatibility.md) and the
+Status: Phase 2 implements guarded CLI previews, validation, persistence primitives,
+and independent recovery. Qt presentation, normal desktop integration, profiles,
+and automation remain planned. See [Phase 2 behavior](phase-2-guide.md),
+[evidence](phase-2-report.md), [research](compatibility.md), and the
 [implementation plan](implementation-plan.md).
 
 ## Components
@@ -49,8 +50,8 @@ this MVP. Workspace routing, if added later, must use explicit Hyprland semantic
 
 Phase 1 established that named Lua monitor updates merge fields, and reload
 removes runtime rules in a controlled configuration. Runtime output snapshots
-cannot recover arbitrary prior rule definitions. Phase 2 must first define an
-explicitly owned baseline and backup/reload strategy. Reject mutation when rule
+cannot recover arbitrary prior rule definitions. Phase 2 uses an exact, generated minimal configuration root with a known monitor
+baseline and backup/reload strategy. It rejects mutation when rule
 ownership, external runtime overrides, or recoverable configuration state are
 uncertain. General restoration of third-party Lua logic is outside the initial
 write-path guarantee. A successful reload must also be checked for config errors
@@ -84,6 +85,44 @@ second apply. Never bypass confirmation by default for keybindings or automation
 
 ## Configuration ownership
 
+Phase 2's supported root is a new private directory containing an exact
+`hyprland.lua` template and generated `monarch_monitors.lua`. The latter embeds
+versioned layout data plus deterministic rules and a preferred-mode fallback for
+new outputs. The guard verifies the active process's config path, exact root
+bytes, regenerated monitor content, initial observed baseline, clean version,
+and Lua provider. Unknown versions, inaccessible metadata, external file edits,
+symlinks/hardlinks, and unfinished journals refuse mutation.
+
+This is an exclusive-control contract for isolated/explicitly owned sessions, not
+a parser or adoption tool for arbitrary Lua. External controllers are unsupported;
+observations cannot detect every hidden rule or advanced runtime override. The
+armed guard resets rules by reloading only the verified, side-effect-free owned
+root. Phase 3 must extend the ownership model deliberately before normal desktop
+configuration integration. It must not weaken the exact-root check silently.
+
+The guard owns all mutations and the session `flock`. Its stdin control pipe uses
+the transaction ID, Keep/Revert, and an explicit persistence boolean. Client EOF,
+SIGTERM/SIGINT, deadline expiry, observed drift, or invalid control triggers
+rollback. The process runs in a separate session and survives client SIGKILL.
+SIGKILL of the guard itself retains an unfinished journal for explicit recovery.
+The deadline covers apply and persistence as well as the pending preview.
+
+Confirmed runtime-only layouts are remembered separately from disk. A later
+preview restores that known runtime baseline on rollback; a deliberate config
+reload can also return to the known disk baseline. Persistence compares hashes,
+retains a private backup, atomically replaces the monitor file, reloads, and
+checks errors and observed state before final confirmation. Uncooperative external
+writers still require conflict handling; hashes are not a cross-process filesystem
+compare-and-swap primitive. Cooperating Monarch clients share the session lock.
+
+Journals bind to the session signature, boot and command-socket inode. Changed
+sessions never receive stale recovery commands. Nonterminal journals from older
+sessions block reuse of the same owned root and appear as a count in transaction
+status. Other-session recovery requires manual backup review, not automatic replay.
+
+The following paths and integration direction also apply to future phases:
+
+
 Profiles and preferences live under `$XDG_CONFIG_HOME/monarch/`; journals and logs
 under `$XDG_STATE_HOME/monarch/`; locks and local IPC under `$XDG_RUNTIME_DIR`.
 Use user-private permissions. Planned persistence is a dedicated managed Lua file
@@ -114,7 +153,8 @@ displays require user mapping. Match each physical output at most once.
 
 Planned CLI surface: `monarch profiles list`, `monarch profiles apply <id>`,
 `monarch profiles cycle`, `monarch status`, `monarch recover`, and
-`monarch watch`. These commands do not exist yet. Mutating CLI operations use the
+`monarch watch`. Profile/cycle/watch commands remain planned; Phase 2 provides `monarch recover`
+and `monarch transaction status`. Mutating CLI operations use the
 same session coordinator as the GUI; a GUI-independent guard protects previews.
 Without a visible confirmation surface, an unconfirmed apply expires and reverts.
 Define an explicit confirmation protocol before enabling noninteractive switching.

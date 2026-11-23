@@ -15,7 +15,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | --- | --- | --- |
 | 0 — Definition/publication | Done | [Public repository](https://github.com/Azazel55605/monarch), `main`; initial local/remote commit verified: `a7cd9bf` |
 | 1 — Read-only foundation | Done | [Phase 1 implementation and feasibility report](phase-1-report.md); read-only native discovery and nested Lua round-trip |
-| 2 — Apply and recovery | Planned | None |
+| 2 — Apply and recovery | Done | [Phase 2 evidence](phase-2-report.md); guarded CLI and native nested recovery matrix |
 | 3 — Qt manual editor | Planned | None |
 | 4 — Profiles/quick switch | Planned | None |
 | 5 — Automatic switching | Planned | None |
@@ -35,11 +35,11 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M1.3 | Version/provider/config-path capability detection | Done | [Inspector](../src/monarch/backends/hyprland/inspector.py), [metadata tests](../tests/test_config.py); unknown paths/providers remain explicit |
 | M1.4 | Event subscription, framing, reconnect and refresh | Done | [Watcher](../src/monarch/backends/hyprland/events.py), [socket tests](../tests/test_events.py), [native subscription](phase-1-report.md); instance-bound reconnect |
 | M1.5 | Prove Lua update/remove/restore and include semantics | Done | [Nested probe](../tools/probe_lua.py), [results and restricted recovery decision](phase-1-report.md); arbitrary-rule restoration unsupported |
-| M2.1 | Layout/identity/mode validation and geometry | Planned | Mixed scale, transforms, mirroring and no-output rejection |
-| M2.2 | Typed Lua serialization and bounded execution | Planned | Escaping, malformed input, timeout and partial failure tests |
-| M2.3 | Shared coordinator and independent recovery guard | Planned | Timeout, client death, serialization and stale-session tests |
-| M2.4 | Managed-file writer, backup and recovery journal | Planned | Atomic writes, concurrent edits, symlink policy, failed reload recovery |
-| M2.5 | Native apply/revert fault acceptance | Planned | [Required recovery cases](validation.md) |
+| M2.1 | Layout/identity/mode validation and geometry | Done | [Layout validation](../src/monarch/domain/layout.py), [domain tests](../tests/test_layout.py); complete topology, identity, geometry and mirror checks |
+| M2.2 | Typed Lua serialization and bounded execution | Done | [Typed writer](../src/monarch/backends/hyprland/writer.py), [bounded transport](../src/monarch/backends/hyprland/commands.py); escaping and mutation fault tests |
+| M2.3 | Shared coordinator and independent recovery guard | Done | [Coordinator](../src/monarch/services/coordinator.py), [independent guard](../src/monarch/services/guard.py), [process/PTY tests](../tests/test_guard.py) |
+| M2.4 | Managed-file writer, backup and recovery journal | Done | [Managed storage](../src/monarch/storage/managed.py), [transaction recovery](../src/monarch/services/transaction.py), [storage tests](../tests/test_storage.py); stale/foreign journal and conflict checks |
+| M2.5 | Native apply/revert fault acceptance | Done | [Native recovery probe](../tools/probe_recovery.py), [observed results and limits](phase-2-report.md); parent physical outputs unchanged |
 | M3.1 | Window, canvas, snapping, keyboard/numeric editing | Planned | Qt interaction and native mixed-DPI checks |
 | M3.2 | Display controls, identification and validation UI | Planned | Native multi-output editing scenario |
 | M3.3 | Keep/Revert, stale topology and dirty-state UX | Planned | Visible countdown, accessible recovery, hotplug during edit |
@@ -59,10 +59,17 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Start Phase 2 with an ownership/conflict contract and a recoverable managed
-configuration baseline. M1.5 rules out generic snapshot-only rollback; do not add
-monitor mutations until this boundary and the independent guard are implemented.
-Physical apply/revert and native Qt editor acceptance have not run.
+Start Phase 3: connect the Qt manual editor to the existing coordinator and design
+explicit normal-desktop ownership/integration before enabling GUI apply. Keep
+profile/automation work in later phases. Physical output changes, native Qt
+acceptance, and release gates remain open.
+
+## Phase 2 checks
+
+See the [Phase 2 report](phase-2-report.md) for automated and installed-wheel
+results, real nested Wayland preview/recovery/persistence/fault checks, and the
+owned-session compatibility boundary. The independent guard survives client death;
+guard death retains durable manual recovery. No parent monitor settings changed.
 
 ## Phase 1 checks
 

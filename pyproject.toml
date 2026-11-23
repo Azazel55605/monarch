@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "monarch-displays"
-version = "0.1.0.dev1"
-description = "A read-only Hyprland monitor inspector and foundation for a Qt monitor manager"
+version = "0.1.0.dev2"
+description = "Guarded Hyprland monitor previews and the foundation for a Qt monitor manager"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
