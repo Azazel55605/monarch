@@ -1,7 +1,8 @@
 # Architecture and intended behavior
 
-Status: proposed design. Phase 1 must validate backend assumptions before the
-write path is implemented. See [research](compatibility.md) and the
+Status: Phase 1 read-only foundation implemented; later components remain a
+proposed design. The [feasibility report](phase-1-report.md) restricts the initial
+write path to explicitly owned configuration state. See [research](compatibility.md) and the
 [implementation plan](implementation-plan.md).
 
 ## Components
@@ -45,6 +46,16 @@ Hyprland does not need a generic desktop-style “primary monitor” abstraction
 this MVP. Workspace routing, if added later, must use explicit Hyprland semantics.
 
 ## Apply and recovery
+
+Phase 1 established that named Lua monitor updates merge fields, and reload
+removes runtime rules in a controlled configuration. Runtime output snapshots
+cannot recover arbitrary prior rule definitions. Phase 2 must first define an
+explicitly owned baseline and backup/reload strategy. Reject mutation when rule
+ownership, external runtime overrides, or recoverable configuration state are
+uncertain. General restoration of third-party Lua logic is outside the initial
+write-path guarantee. A successful reload must also be checked for config errors
+and observed output state; full reload can rerun unrelated configuration logic.
+
 
 1. Acquire a per-session transaction lock; re-read topology and config generation.
 2. Validate settings, resolve monitor identity, reject missing required displays,

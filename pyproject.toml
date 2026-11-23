@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "monarch-displays"
+version = "0.1.0.dev1"
+description = "A read-only Hyprland monitor inspector and foundation for a Qt monitor manager"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Monarch contributors"}]
+classifiers = ["Development Status :: 2 - Pre-Alpha", "Operating System :: POSIX :: Linux", "Programming Language :: Python :: 3"]
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.8,<7"]
+
+[project.scripts]
+monarch = "monarch.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Azazel55605/monarch"
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "ruff>=0.14,<1", "mypy>=1.18,<2", "build>=1.3,<2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/monarch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/monarch"]

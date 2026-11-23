@@ -1,6 +1,6 @@
 # Contributing to Monarch
 
-Monarch is in the planning stage. Start with the [implementation plan](docs/implementation-plan.md)
+Monarch has a read-only CLI foundation. Start with the [implementation plan](docs/implementation-plan.md)
 and [progress tracker](docs/progress.md). Keep changes focused on a task ID;
 record the evidence required to mark it done. Discuss architectural departures
 and new scope before treating them as accepted roadmap changes.
@@ -20,5 +20,16 @@ and unrelated process/window information. Bug reports should include software
 versions, a generic topology, reproduction steps, expected/observed behavior,
 and redacted errors. Never include credentials.
 
-There is no supported developer setup or application command yet. Phase 1 will
-add those instructions alongside the package and CI configuration.
+Use Python 3.12+ and uv 0.13.9 (the CI version). `uv sync --locked` installs the
+package and development dependencies. Run `uv run ruff check .`, `uv run ruff
+format --check .`, `uv run mypy`, `uv run pytest`, and `uv build` before submitting.
+The automated tests require no live compositor, Qt installation, or GPU.
+
+For read-only native checks, run `uv run monarch inspect` in Hyprland. Reports
+redact identifying fields unless `--show-identifiers` is explicitly requested.
+Do not commit raw local captures. The optional `python tools/probe_lua.py` starts
+and terminates its own temporary nested Hyprland instance; it requires version
+0.57.2, Wayland and render-device access and briefly opens a nested window. It
+performs mutations only after verifying that the new instance uses the Wayland
+backend and has a different signature from the parent. See the
+[Phase 1 report](docs/phase-1-report.md) for scope and limitations.

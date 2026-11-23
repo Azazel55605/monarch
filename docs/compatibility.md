@@ -1,7 +1,9 @@
 # Compatibility research
 
 Research date: 2026-11-23. This records upstream interfaces, not Monarch runtime
-certification. No monitor settings were changed during repository preparation.
+certification. Phase 1 adds read-only native discovery and isolated nested-session
+evidence in the [feasibility report](phase-1-report.md). No parent-session monitor
+settings were changed.
 
 ## Baseline and sources
 
@@ -15,7 +17,7 @@ installed version and tagged source before implementing each adapter feature.
 | --- | --- | --- |
 | [Lua configuration](https://wiki.hypr.land/configuring/core/) | Dedicated generated monitor include | Include ordering, reload semantics, custom config paths |
 | [Monitor rules](https://wiki.hypr.land/configuring/core/monitors/) | Generate `hl.monitor` tables | Rule replacement/removal and restoration of prior rules |
-| [hyprctl](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/) | JSON discovery, `eval`, diagnostics | Output shapes, capability detection, runtime error handling |
+| [hyprctl](https://wiki.hypr.land/configuring/core/advanced-configuration/using-hyprctl/) | JSON discovery, `eval`, diagnostics | Phase 1 verifies version/status/monitor reads; writes remain disabled |
 | [IPC events](https://wiki.hypr.land/ipc/) | Subscribe to topology events | Event payloads, framing, reconnect and restart behavior |
 | [Modes and mirroring](https://wiki.hypr.land/configuring/core/monitors/modes/) | Mode choices, mirror groups, VRR | Fractional scale constraints and hardware-specific behavior |
 | [Qt for Python](https://doc.qt.io/qtforpython-6/) | PySide6 GUI | Arch packages, Wayland plugin, distribution licenses |
@@ -25,8 +27,11 @@ The Lua monitor rule uses fields such as `output`, `mode`, `position`, `scale`,
 color management, and HDR-related settings. Their presence in documentation is
 not evidence that a particular GPU/display combination can use them.
 
-Monitor discovery should read `hyprctl -j monitors all`, retaining inactive
-outputs, and inspect the compositor version. Runtime Lua changes use `hyprctl
+Monitor discovery reads `hyprctl -j monitors all`, retaining inactive
+outputs, and inspects the compositor version. Provider/backend come from `hyprctl -j status`,
+which avoids collecting the broader system information report. See the tagged
+[status implementation](https://github.com/hyprwm/Hyprland/blob/v0.57.2/src/helpers/SystemInfo.cpp).
+The inspector does not rely on the instances command. Runtime Lua changes use `hyprctl
 eval`; keep the typed command generator separate from process execution. Control
 requests are synchronous in the compositor: avoid continuous polling and
 coalesce event-driven refreshes. Runtime overrides need persistence across reloads.
@@ -36,7 +41,7 @@ The event stream is exposed at
 Treat events as invalidation hints and re-query authoritative topology after
 settling. A socket notification alone does not prove a monitor is ready.
 
-## Support policy to establish in phase 1
+## Phase 1 support policy
 
 - Detect the actual session, compositor version, configuration provider, and
   capabilities. Do not infer provider solely from a filename or version.
@@ -58,3 +63,25 @@ calling a batch or Lua chunk does not establish transactional atomicity.
 Executing arbitrary Lua for import would execute user code. Monarch should only
 serialize its own typed data, escape strings, and manage its own files. Existing
 configuration conflicts should be surfaced rather than silently overridden.
+
+## Implemented compatibility boundary
+
+The read-only adapter accepts additive JSON fields and exposes missing values as
+unknown with warnings. Broken version/status responses do not hide otherwise
+valid monitor discovery. A malformed monitor topology fails with an actionable
+error. Only a clean `v0.57.2` tag is classified as the stable baseline; other
+versions remain inspectable without a support claim. `lua_advertised` reflects
+the reported provider, not proof that all Lua operations are safe.
+
+Custom paths are discovered from the selected compositor's command line or
+`HYPRLAND_CONFIG` process environment when accessible. Safe mode has precedence.
+The conventional XDG path is only a candidate because config search directories
+may change which file wins. An explicit `--config` is a user selection, not a
+verified active path. Sandboxed/inaccessible process metadata remains unknown.
+No Lua file is opened or executed for detection.
+
+Event reconnection targets the selected signature only. A fresh compositor
+signature requires a new invocation; discovery never silently crosses sessions.
+PySide6 6.12.0 is available on the native test host, but no GUI has been implemented
+or tested. The planned GUI dependency range is 6.8 through Qt 6; this is not yet
+a certified Qt-version matrix.

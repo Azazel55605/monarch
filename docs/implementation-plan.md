@@ -1,6 +1,7 @@
 # Phased implementation plan
 
-Created: 2026-11-23. Status is maintained in the [progress tracker](progress.md).
+Created: 2026-11-23. Phase 1 feasibility findings incorporated on 2026-11-23.
+Status is maintained in the [progress tracker](progress.md).
 This plan scopes a Python/PySide6 application for Hyprland on Arch-based Linux.
 [Architecture](architecture.md), [compatibility research](compatibility.md), and
 [validation](validation.md) define the implementation boundaries.
@@ -34,6 +35,13 @@ sessions degrade safely. If rule restoration cannot be made reliable, revise the
 apply design before phase 2. Automated fixtures alone cannot satisfy this gate.
 
 ## Phase 2 — Validated apply, persistence primitive, and recovery
+
+Phase 1 finding: omitted fields merge into named Lua rules; output snapshots
+cannot restore arbitrary prior rules. Start by limiting mutation to an explicitly
+owned, recoverable baseline, with conflict detection and backup/reload recovery.
+Do not enable generic snapshot-only rollback. The
+[feasibility report](phase-1-report.md) records the tested boundary.
+
 
 Implement layout validation, logical geometry, Lua literal generation, one
 transaction coordinator, independent recovery guard, journals, and explicit
