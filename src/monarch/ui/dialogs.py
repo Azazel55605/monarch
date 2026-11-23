@@ -131,12 +131,12 @@ class IntegrationDialog(QDialog):
         add.clicked.connect(self.add_dependencies)
         remove.clicked.connect(lambda: self.dependencies.takeItem(self.dependencies.currentRow()))
         self.approval = QCheckBox(
-            "I delegate this config's basic monitor settings to Monarch and approve reloads."
+            "I delegate monitor layout and VRR Off/On to Monarch and approve reloads."
         )
         layout.addWidget(self.approval)
         info = QLabel(
             "Default-path sessions require a full Lua context reset during guarded reloads. "
-            "Advanced HDR, VRR and color rules are outside this integration contract. "
+            "HDR, conditional VRR and color/depth rules are outside this integration contract. "
             "Keep other display managers disabled. Dynamic monitor rules or undeclared "
             "configuration files are outside this integration contract."
         )
