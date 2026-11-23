@@ -1,4 +1,4 @@
-"""Phase 2 CLI entry points use the same independent guard as future GUI clients."""
+"""Guarded CLI entry points share confirmation and the independent recovery guard."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
 from monarch.domain.monitors import parse_monitors
 from monarch.errors import MonarchError
-from monarch.services.coordinator import Coordinator
+from monarch.services.coordinator import Coordinator, Preview
 from monarch.services.state import TERMINAL
 from monarch.storage.files import read_json, write_json
 from monarch.storage.managed import Managed
@@ -110,37 +110,40 @@ async def execute(args: argparse.Namespace) -> int:
             load_layout(args.file),
             seconds=args.seconds,
         )
-        try:
-            print(
-                "Preview active. Type keep to confirm, or revert to restore. "
-                "The independent guard enforces the deadline.",
-                flush=True,
-            )
-            if not sys.stdin.isatty():
-                print("No interactive terminal: preview will expire and revert.", flush=True)
-                result = await handle.wait()
-            else:
-                waiting = asyncio.create_task(handle.wait())
-                input_task = asyncio.create_task(terminal_line())
-                try:
-                    done, _ = await asyncio.wait(
-                        [waiting, input_task], return_when=asyncio.FIRST_COMPLETED
-                    )
-                    if waiting in done:
-                        result = await waiting
-                    else:
-                        result = await handle.decide(
-                            keep=(await input_task) == "keep", persist=args.persist
-                        )
-                finally:
-                    input_task.cancel()
-                    await asyncio.gather(input_task, return_exceptions=True)
-        finally:
-            if handle.process.stdin:
-                handle.process.stdin.close()
+        result = await confirm_preview(handle, persist=args.persist)
     print(json.dumps(result))
     if result["state"] not in ("kept", "reverted", "degraded"):
         raise MonarchError(
             "Recovery is unfinished. Inspect transaction status; do not delete its journal."
         )
     return 0
+
+
+async def confirm_preview(handle: Preview, *, persist: bool = False) -> dict[str, object]:
+    try:
+        print(
+            "Preview active. Type keep to confirm, or revert to restore. "
+            "The independent guard enforces the deadline.",
+            flush=True,
+        )
+        if not sys.stdin.isatty():
+            print("No interactive terminal: preview will expire and revert.", flush=True)
+            result = await handle.wait()
+        else:
+            waiting = asyncio.create_task(handle.wait())
+            input_task = asyncio.create_task(terminal_line())
+            try:
+                done, _ = await asyncio.wait(
+                    [waiting, input_task], return_when=asyncio.FIRST_COMPLETED
+                )
+                if waiting in done:
+                    result = await waiting
+                else:
+                    result = await handle.decide(keep=(await input_task) == "keep", persist=persist)
+            finally:
+                input_task.cancel()
+                await asyncio.gather(input_task, return_exceptions=True)
+    finally:
+        if handle.process.stdin:
+            handle.process.stdin.close()
+    return result

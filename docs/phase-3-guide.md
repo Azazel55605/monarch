@@ -1,5 +1,8 @@
 # Qt manual editor
 
+Phase 3 contract reference. Profiles and appearance are now described in the
+[Phase 4 guide](phase-4-guide.md).
+
 Launch from a Hyprland session:
 
 ```sh

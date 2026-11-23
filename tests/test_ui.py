@@ -301,3 +301,183 @@ def test_unknown_current_mode_is_not_silently_replaced(window, inspection):
     window.position_x.setValue(-1920)
     assert window.model.draft.outputs[0].mode.endswith("@57.0")
     assert not window.apply.isEnabled()
+
+
+def test_profile_draft_load_switch_and_saving_do_not_apply_implicitly(window, qtbot):
+    from monarch.domain.layout import Layout
+    from monarch.domain.profiles import Profile
+
+    layout = Layout(tuple(replace(o, x=o.x - 100) for o in window.model.draft.outputs))
+    profiles = tuple(
+        Profile(str(i) * 32, name, layout)
+        for i, name in [(1, "Desk"), (2, "Presentation"), (3, "Portrait")]
+    )
+    window.receive_profiles(profiles)
+    assert window.profile_bar.selector.count() == 3
+    previews = []
+    window.preview_requested.connect(previews.append)
+    window.profile_loaded(layout, False)
+    assert window.model.dirty and not window.model.busy
+    assert not previews
+    window.profile_loaded(layout, True)
+    assert window.model.busy and previews == [layout]
+    assert not window.profile_bar.isEnabled()
+    window.model.busy = False
+
+
+def test_explicit_mapping_dialog_requires_complete_one_to_one_choices(qtbot, inspection):
+    from monarch.domain.layout import Layout
+    from monarch.domain.profiles import Profile
+    from monarch.ui.profiles import MappingDialog
+
+    live = tuple(replace(m, make="Same", model="Twins", serial="") for m in inspection.monitors)
+    layout = Layout(
+        tuple(
+            replace(o, make="Same", model="Twins", serial="")
+            for o in editor_layout(inspection).outputs
+        )
+    )
+    dialog = MappingDialog(Profile("a" * 32, "Twins", layout), live, "Ambiguous", None)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    assert not dialog.ok.isEnabled()
+    choices = list(dialog.choices.values())
+    choices[0].setCurrentIndex(1)
+    choices[1].setCurrentIndex(1)
+    assert not dialog.ok.isEnabled()
+    choices[1].setCurrentIndex(2)
+    assert dialog.ok.isEnabled()
+    mapped = []
+    dialog.mapped.connect(mapped.append)
+    qtbot.mouseClick(dialog.ok, Qt.MouseButton.LeftButton)
+    assert len(set(mapped[0].values())) == 2
+
+
+def editor_layout(inspection):
+    model = EditorModel()
+    model.receive(inspection)
+    return model.draft
+
+
+def test_installed_styles_and_missing_saved_theme_fallback(qapp, qtbot, tmp_path):
+    from PySide6.QtCore import QSettings
+    from PySide6.QtWidgets import QMenu
+
+    from monarch.ui.theme import ThemeController
+
+    settings = QSettings(str(tmp_path / "appearance.ini"), QSettings.Format.IniFormat)
+    settings.setValue("appearance/style", "not-installed")
+    original = qapp.style().objectName()
+    controller = ThemeController(qapp, settings)
+    assert controller.warning and controller.selected == ""
+    menu = QMenu()
+    controller.menu(menu)
+    fusion = next(a for a in menu.actions() if a.text().lower() == "fusion")
+    fusion.trigger()
+    assert qapp.style().objectName().lower() == "fusion"
+    assert settings.value("appearance/style").lower() == "fusion"
+    menu.actions()[0].trigger()
+    assert qapp.style().objectName() == original
+    assert settings.value("appearance/style") == ""
+
+
+def test_profile_worker_switch_keep_revert_and_shared_cli_lock(qtbot, guard_setup, tmp_path):
+    import asyncio
+
+    from monarch.errors import MonarchError
+    from monarch.storage.profiles import ProfileStore
+    from monarch.ui.worker import BackendThread
+
+    coordinator, store, baseline, desired, state = guard_setup
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    worker.profile_store = ProfileStore(tmp_path / "profiles")
+    profiles = [
+        worker.profile_store.save(name, layout)
+        for name, layout in [("Desk", baseline), ("Presentation", desired), ("Portrait", baseline)]
+    ]
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    completed = []
+    worker.completed.connect(completed.append)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready and widget.profile_bar.selector.count() == 3)
+        widget.load_profile(profiles[1].id, True)
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
+
+        async def competing_cli():
+            with pytest.raises(MonarchError, match="did not start"):
+                await coordinator.preview(store, desired, seconds=5)
+
+        asyncio.run(competing_cli())
+        widget.confirmation.choose(True)
+        qtbot.waitUntil(
+            lambda: bool(completed) and not widget.model.busy and not widget.model.dirty,
+            timeout=10000,
+        )
+        assert completed[-1]["state"] == "kept"
+        widget.load_profile(profiles[0].id, True)
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
+        widget.confirmation.choose(False)
+        qtbot.waitUntil(lambda: len(completed) == 2 and not widget.model.busy, timeout=10000)
+        assert completed[-1]["state"] == "reverted"
+        # Closing a third switch must recover through the independent guard.
+        widget.discard_edits()
+        qtbot.waitUntil(lambda: not widget.model.dirty)
+        widget.load_profile(profiles[2].id, True)
+        qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
+    finally:
+        widget._closing = True
+        widget.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+    assert coordinator.paths.status()["status"] == "reverted"
+
+
+def test_profile_menu_captures_observed_and_draft_separately(
+    qtbot, guard_setup, tmp_path, monkeypatch
+):
+    from PySide6.QtWidgets import QInputDialog
+
+    from monarch.storage.profiles import ProfileStore
+    from monarch.ui.worker import BackendThread
+
+    coordinator, store, baseline, desired, state = guard_setup
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=store.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    worker.profile_store = ProfileStore(tmp_path / "profiles")
+    widget = MainWindow(worker)
+    qtbot.addWidget(widget)
+    widget.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: widget.ready and widget.model.inspection is not None)
+        widget.model.draft = desired
+        widget.render_state()
+        monkeypatch.setattr(QInputDialog, "getText", lambda *a, **kw: ("Observed", True))
+        widget.profile_bar.menu.actions()[0].trigger()
+        qtbot.waitUntil(
+            lambda: (
+                widget.profile_bar.selector.count() == 1
+                and widget.profile_bar.selector.currentText() == "Observed"
+            )
+        )
+        assert worker.profile_store.get("Observed").layout == baseline
+        monkeypatch.setattr(QInputDialog, "getText", lambda *a, **kw: ("Edited", True))
+        widget.profile_bar.menu.actions()[1].trigger()
+        qtbot.waitUntil(lambda: widget.profile_bar.selector.count() == 2)
+        assert worker.profile_store.get("Edited").layout == desired
+        assert not coordinator.paths.status()  # Captures never launch the guard.
+    finally:
+        widget._closing = True
+        widget.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)

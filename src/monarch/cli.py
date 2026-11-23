@@ -1,4 +1,4 @@
-"""Inspection and guarded CLI previews; the Qt editor is a later phase."""
+"""Inspection, Qt editor and guarded profile switching entry points."""
 
 import argparse
 import asyncio
@@ -17,6 +17,7 @@ from monarch.backends.hyprland.inspector import Inspection, Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.errors import MonarchError
 from monarch.services.cli import add_commands, execute
+from monarch.services.profiles import add_profile_commands, execute_profile
 
 
 def report(inspection: Inspection, *, identifiers: bool = False) -> dict[str, Any]:
@@ -158,13 +159,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     gui = commands.add_parser("gui", help="Open the Qt monitor editor")
     gui.add_argument("--directory", type=Path, help="Owned or registered monitor storage")
+    gui.add_argument("--tray", action="store_true", help="Show an optional profile tray menu")
     add_commands(commands)
+    add_profile_commands(commands)
     args = parser.parse_args(argv)
-    if args.command == "gui":
+    if (
+        args.command == "profile"
+        and args.profile_action == "switch"
+        and not args.terminal
+        and (args.map or args.seconds != 15)
+    ):
+        parser.error("--map and --seconds require --terminal; GUI switches offer a mapping dialog.")
+    if args.command == "gui" or (
+        args.command == "profile" and args.profile_action == "switch" and not args.terminal
+    ):
         try:
             from monarch.ui.app import launch
 
-            return launch(args.directory)
+            if args.command == "profile":
+                # Resolve the profile before opening a window. The worker will
+                # resolve it again against live topology before preview.
+                from monarch.storage.profiles import ProfileStore
+
+                profile = ProfileStore(
+                    args.store.expanduser().absolute() if args.store else None
+                ).get(args.name)
+                return launch(
+                    args.directory,
+                    profile=profile.id,
+                    persist=args.persist,
+                    profile_directory=args.store,
+                )
+            return launch(args.directory, tray=args.tray)
+        except (MonarchError, OSError) as exc:
+            print(f"Monarch: {exc}", file=sys.stderr)
+            return 2
         except ModuleNotFoundError:
             print(
                 "Monarch GUI needs PySide6. Run uv run --extra gui monarch gui.",
@@ -172,7 +201,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 2
     try:
-        return asyncio.run(inspect_command(args) if args.command == "inspect" else execute(args))
+        return asyncio.run(
+            inspect_command(args)
+            if args.command == "inspect"
+            else execute_profile(args)
+            if args.command == "profile"
+            else execute(args)
+        )
     except OSError:
         print("Monarch: storage or session access failed; check permissions.", file=sys.stderr)
         return 2

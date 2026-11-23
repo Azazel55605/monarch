@@ -223,3 +223,51 @@ def test_cli_terminal_keep_persists_explicitly(guard_setup, tmp_path):
         if process.poll() is None:
             process.kill()
             process.wait()
+
+
+def test_profile_terminal_switch_keep_and_noninteractive_refusal(guard_setup, tmp_path):
+    import pty
+
+    from monarch.storage.profiles import ProfileStore
+
+    coordinator, store, baseline, desired, state = guard_setup
+    profiles = ProfileStore(tmp_path / "profiles")
+    profiles.save("Presentation", desired)
+    command = [
+        sys.executable,
+        "-m",
+        "monarch",
+        "profile",
+        "--store",
+        str(profiles.directory),
+        "switch",
+        "Presentation",
+        "--terminal",
+        "--persist",
+        "--directory",
+        str(store.directory),
+    ]
+    env = cli_environment(coordinator, store)
+    result = subprocess.run(
+        command, env=env, input="keep\n", capture_output=True, text=True, timeout=15
+    )
+    assert result.returncode == 2
+    assert "interactive terminal" in result.stderr
+    assert baseline.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
+    master, slave = pty.openpty()
+    process = subprocess.Popen(
+        command, env=env, stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    os.close(slave)
+    try:
+        assert "Preview active" in process.stdout.readline()
+        os.write(master, b"keep\n")
+        output, error = process.communicate(timeout=15)
+        assert process.returncode == 0, error
+        assert json.loads(output.splitlines()[-1])["state"] == "kept"
+        assert store.read()[0] == desired
+    finally:
+        os.close(master)
+        if process.poll() is None:
+            process.kill()
+            process.wait()

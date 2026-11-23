@@ -1,8 +1,9 @@
 # Architecture and intended behavior
 
-Status: Phase 3 adds the native Qt editor and explicitly reviewed desktop
-integration to the existing guarded apply/recovery services. Profiles and automation
-remain planned. See [Phase 3 behavior](phase-3-guide.md), [evidence](phase-3-report.md),
+Status: Phase 4 adds versioned profiles, explicit physical identity mapping,
+guarded GUI/tray/CLI switching and native Qt appearance to the existing editor.
+Automatic switching remains planned. See the [profile guide](phase-4-guide.md),
+[Phase 3 behavior](phase-3-guide.md), [evidence](phase-3-report.md),
 and the historical [Phase 2 behavior](phase-2-guide.md),
 [evidence](phase-2-report.md), [research](compatibility.md), and the
 [implementation plan](implementation-plan.md).
@@ -31,7 +32,8 @@ runtime dependencies after checking supported Arch packages.
 ## GUI workflow
 
 The implemented main window has a central display canvas, a display properties
-panel, and an Apply/Revert bar. Phase 4 adds profile selection. Monitor rectangles reflect logical
+panel, and an Apply/Revert bar. The profile selector and Profiles menu provide
+capture, editing and guarded switching. Monitor rectangles reflect logical
 size after scale and rotation; dragging supports edge snapping and alignment.
 Numeric coordinates and keyboard controls offer the same actions without drag.
 A selected monitor exposes enabled state, mode, refresh, scale, transform, and
@@ -137,7 +139,8 @@ status. Other-session recovery requires manual backup review, not automatic repl
 The following paths and integration direction also apply to future phases:
 
 
-Profiles and preferences live under `$XDG_CONFIG_HOME/monarch/`; journals and logs
+Profiles live under `$XDG_CONFIG_HOME/monarch/`; native Qt appearance preferences
+use Qt user settings. Journals and logs live
 under `$XDG_STATE_HOME/monarch/`; locks and local IPC under `$XDG_RUNTIME_DIR`.
 Use user-private permissions. Persistence uses a dedicated managed Lua file
 such as `$XDG_CONFIG_HOME/hypr/monarch/monarch_monitors.lua` loaded explicitly
@@ -153,27 +156,19 @@ data, never commands or Lua snippets.
 
 ## Profiles and quick switching
 
-Each versioned JSON profile has a stable UUID, display name, display identity
-selectors, desired per-display settings, optional matching rules, priority, and
-an explicit unmatched-display policy. Store mode refresh with sufficient precision;
-retain `preferred`/automatic choices as choices rather than resolved snapshots.
-Support schema migrations, backup-before-migration, and validation on import.
-Future-schema profiles remain intact and read-only with an explanatory error.
+Profiles contain a stable UUID, a unique name and a concrete layout snapshot.
+The current policy requires an exact physical output set and advertised modes;
+matching policies/priorities for automation remain Phase 5. Schema-1 interchange
+migrates on the next successful edit. Future schemas remain unchanged. See the
+[profile guide](phase-4-guide.md) for the schema and confirmation contract.
 
-Prefer a unique make/model/serial identity when available. Serial numbers can be
-empty or duplicated; description and connector are explicit fallback selectors.
-Connector names are hints, not universal persistent identities. Ambiguous identical
-displays require user mapping. Match each physical output at most once.
-
-Planned CLI surface: `monarch profiles list`, `monarch profiles apply <id>`,
-`monarch profiles cycle`, `monarch status`, `monarch recover`, and
-`monarch watch`. Profile/cycle/watch commands remain planned; Phase 2 provides `monarch recover`
-and `monarch transaction status`. Mutating CLI operations use the
-same session coordinator as the GUI; a GUI-independent guard protects previews.
-Without a visible confirmation surface, an unconfirmed apply expires and reverts.
-Define an explicit confirmation protocol before enabling noninteractive switching.
-Tray integration is optional; CLI and main-window actions remain available when
-no tray host is running. Autostart is opt-in and user-scoped, never a root service.
+`monarch profile` provides offline CRUD/import/export, fresh capture and switching.
+Keybinding switches open visible Qt confirmation; `--terminal` requires a real TTY
+and typed Keep. Tray actions also open the editor and clear persistence. Every
+apply goes through the existing independent guard and per-session lock. Unknown
+runtime baselines after topology changes still require integration re-review.
+A profile resolver cannot bypass recovery ownership. Watch/cycle/autostart are
+not implemented; automatic selection remains opt-in future work.
 
 ## Automatic matching
 
@@ -201,3 +196,19 @@ selection, conflict, or no-op without publishing monitor identifiers by default.
 
 The defaults above allow implementation to begin; these questions do not imply
 additional first-release scope.
+
+## Profile persistence and identity
+
+`storage/profiles.py` maintains a private schema-2 catalog under XDG config, with
+atomic writes and a cooperative lock separate from the session transaction lock.
+Schema-1 interchange migrates on the next edit; unknown versions remain unchanged.
+Import/export is strictly data-only. `domain/profiles.py` resolves the exact physical
+set before generating a session layout, remaps mirror references, and requires
+explicit bindings for ambiguous identities or absent-serial connector changes.
+The worker repeats live discovery before loading; the guard validates again before
+mutation. GUI, tray and terminal clients use the same coordinator and session lock.
+
+Appearance uses the Qt platform theme and QStyleFactory rather than a global
+stylesheet/palette. Same-major/minor system plugin trees augment wheel discovery;
+Qt validates individual plugins. Optional tray actions surface visible GUI
+confirmation and never imply Keep or save-on-login. Closing exits the tray too.

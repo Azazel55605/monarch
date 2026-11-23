@@ -1,10 +1,11 @@
 """Native Qt manual monitor editor; mutations go through BackendThread's coordinator."""
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QCloseEvent, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -16,21 +17,28 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSpinBox,
     QSplitter,
+    QStyle,
+    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
 
 from monarch.backends.hyprland.inspector import Inspection
-from monarch.domain.monitors import Mode
+from monarch.domain.layout import Layout
+from monarch.domain.monitors import Mode, Monitor
+from monarch.domain.profiles import Profile
 from monarch.errors import MonarchError
 from monarch.ui.canvas import LayoutCanvas
 from monarch.ui.dialogs import ConfirmationDialog, IntegrationDialog
 from monarch.ui.identify import Identification
 from monarch.ui.model import EditorModel
+from monarch.ui.profiles import MappingDialog, ProfileBar
+from monarch.ui.theme import ThemeController
 from monarch.ui.worker import BackendThread
 
 
@@ -38,7 +46,14 @@ class MainWindow(QMainWindow):
     preview_requested = Signal(object)
 
     def __init__(
-        self, backend: BackendThread | None = None, *, quit_on_close: bool = False
+        self,
+        backend: BackendThread | None = None,
+        *,
+        quit_on_close: bool = False,
+        theme: ThemeController | None = None,
+        startup_profile: str = "",
+        persist_profile: bool = False,
+        tray_enabled: bool = False,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Monarch · Displays")
@@ -47,6 +62,9 @@ class MainWindow(QMainWindow):
         self.model = EditorModel()
         self.backend = backend
         self.quit_on_close = quit_on_close
+        self.startup_profile = startup_profile
+        self._profile_loading = False
+        self._requested_profile = ""
         self.ready = False
         self.ownership_reason = "Connecting to Hyprland…"
         self.loading = False
@@ -57,6 +75,9 @@ class MainWindow(QMainWindow):
         self.identification = Identification()
         self._persist = False
         self.notice = ""
+        if theme is not None:
+            appearance = self.menuBar().addMenu("Appearance")
+            theme.menu(appearance)
         central = QWidget()
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
@@ -79,6 +100,23 @@ class MainWindow(QMainWindow):
         self.refresh_button.clicked.connect(self.refresh)
         row.addWidget(self.refresh_button)
         outer.addLayout(row)
+        self.profile_bar = ProfileBar(self)
+        self.profile_bar.request.connect(self.profile_request)
+        self.profile_bar.load.connect(self.load_profile)
+        outer.addWidget(self.profile_bar)
+        self.tray: QSystemTrayIcon | None = None
+        self.tray_menu: QMenu | None = None
+        if tray_enabled:
+            self.tray = QSystemTrayIcon(self)
+            icon = QIcon.fromTheme("video-display")
+            if icon.isNull():
+                icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+            self.tray.setIcon(icon)
+            self.tray.setToolTip("Monarch — guarded monitor profiles")
+            self.tray_menu = QMenu(self)
+            self.tray.setContextMenu(self.tray_menu)
+            self.update_tray(())
+            self.tray.show()
         self.banner = QLabel("Connecting to the compositor…")
         self.banner.setWordWrap(True)
         self.banner.setAccessibleName("Monitor management status")
@@ -195,6 +233,7 @@ class MainWindow(QMainWindow):
         self.persist = QCheckBox("Save on login")
         self.persist.setToolTip("Only saved after you choose Keep changes.")
         self.persist.setObjectName("saveOnLogin")
+        self.persist.setChecked(persist_profile)
         self.persist.toggled.connect(self.update_status)
         row.addWidget(self.persist)
         self.discard = QPushButton("Discard edits")
@@ -219,6 +258,11 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Escape"), self, self.identification.close)
         QShortcut(QKeySequence("Ctrl+R"), self, self.refresh)
         if backend:
+            backend.profiles.connect(self.receive_profiles)
+            backend.profile_loaded.connect(self.profile_loaded)
+            backend.profile_mapping.connect(self.profile_mapping)
+            backend.profile_notice.connect(self.profile_message)
+            backend.profile_failed.connect(self.profile_error)
             backend.observed.connect(self.receive)
             backend.ownership.connect(self.receive_ownership)
             backend.failed.connect(self.show_error)
@@ -235,6 +279,9 @@ class MainWindow(QMainWindow):
         caps = inspection.capabilities
         self.session_label.setText(f"Hyprland {caps.version or 'unknown'} · {caps.provider}")
         self.render_state()
+        if self.startup_profile and self.ready:
+            key, self.startup_profile = self.startup_profile, ""
+            QTimer.singleShot(0, lambda: self.load_profile(key, True))
 
     def receive_ownership(self, state: dict[str, Any]) -> None:
         self.ready = state["ready"]
@@ -261,7 +308,7 @@ class MainWindow(QMainWindow):
                 self.displays.addItem(f"{index}   {output.name}    ·    {state}")
                 if output.name == selected:
                     self.displays.setCurrentRow(index - 1)
-            self.canvas.display(draft, selected, not self.model.busy)
+            self.canvas.display(draft, selected, not self.model.busy and not self._profile_loading)
         self.loading = False
         self.load_properties()
         self.update_status()
@@ -269,7 +316,9 @@ class MainWindow(QMainWindow):
     def load_properties(self) -> None:
         self.loading = True
         output = self.model.output(self.model.selected)
-        self.properties.setEnabled(output is not None and not self.model.busy)
+        self.properties.setEnabled(
+            output is not None and not self.model.busy and not self._profile_loading
+        )
         if output and self.model.inspection:
             self.selected_title.setText(output.name)
             monitor = next(
@@ -386,6 +435,7 @@ class MainWindow(QMainWindow):
                 and (self.model.dirty or self.persist.isChecked())
                 and not error
                 and not self.model.busy
+                and not self._profile_loading
             )
         )
         self.apply.setText(
@@ -393,20 +443,142 @@ class MainWindow(QMainWindow):
             if self.persist.isChecked() and not self.model.dirty
             else "Preview changes"
         )
-        self.discard.setEnabled(self.model.dirty and not self.model.busy)
-        self.revalidate_button.setEnabled(self.model.stale and not self.model.busy)
+        self.profile_bar.setEnabled(not self.model.busy and not self._profile_loading)
+        self.discard.setEnabled(
+            self.model.dirty and not self.model.busy and not self._profile_loading
+        )
+        self.revalidate_button.setEnabled(
+            self.model.stale and not self.model.busy and not self._profile_loading
+        )
         for button in (
             self.setup_button,
             self.refresh_button,
             self.identify_button,
             self.recover_button,
         ):
-            button.setEnabled(not self.model.busy)
+            button.setEnabled(not self.model.busy and not self._profile_loading)
         self.persist.setEnabled(not self.model.busy and self.ready)
         self.recover_button.setVisible(
             "recovery" in self.ownership_reason.lower()
             or "unfinished" in self.ownership_reason.lower()
         )
+
+    def profile_message(self, message: str) -> None:
+        self.notice = message
+        self.update_status()
+
+    def profile_error(self, message: str) -> None:
+        self._profile_loading = False
+        self.profile_message(message)
+        self.render_state()
+
+    def receive_profiles(self, profiles: tuple[Profile, ...]) -> None:
+        self.profile_bar.populate(profiles)
+        index = self.profile_bar.selector.findData(self._requested_profile)
+        if index >= 0:
+            self.profile_bar.selector.setCurrentIndex(index)
+        self.update_tray(profiles)
+
+    def update_tray(self, profiles: tuple[Profile, ...]) -> None:
+        if self.tray_menu is None:
+            return
+        self.tray_menu.clear()
+        self.tray_menu.addAction("Open Monarch", self.show_editor)
+        for profile in profiles:
+            self.tray_menu.addAction(profile.name, partial(self.tray_switch, profile.id))
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction("Quit Monarch", self.close)
+
+    def show_editor(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def tray_switch(self, key: str) -> None:
+        # Always surface the editor and the real Keep/Revert dialog. Tray actions
+        # never imply confirmation or persistence.
+        self.show_editor()
+        self.persist.setChecked(False)
+        self.load_profile(key, True)
+
+    def profile_request(self, operation: str, payload: dict[str, Any]) -> None:
+        if self.model.busy or self._profile_loading:
+            return
+        if operation in {"save", "update"}:
+            if not self.model.draft:
+                self.profile_message("No edited layout is available.")
+                return
+            try:
+                Layout.parse(self.model.draft.to_dict())
+            except MonarchError as exc:
+                self.profile_message(str(exc))
+                return
+            payload = dict(payload, layout=self.model.draft)
+        if self.backend:
+            self.backend.submit("profile", operation, payload)
+
+    def load_profile(self, key: str, switch: bool = False) -> None:
+        if not key or self.model.busy or self._profile_loading:
+            return
+        if switch and not self.ready:
+            self.profile_message("Set up monitor management before switching profiles.")
+            return
+        if (
+            self.model.dirty
+            and QMessageBox.question(
+                self,
+                "Replace edited layout?",
+                "Discard the current edits and load this profile?",
+                QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            != QMessageBox.StandardButton.Discard
+        ):
+            return
+        self._requested_profile = key
+        index = self.profile_bar.selector.findData(key)
+        if index >= 0:
+            self.profile_bar.selector.setCurrentIndex(index)
+        self._profile_loading = True
+        self.render_state()
+        if self.backend:
+            self.backend.submit("profile", "switch" if switch else "load", {"key": key})
+
+    def profile_mapping(
+        self, profile: Profile, monitors: tuple[Monitor, ...], switch: bool, reason: str
+    ) -> None:
+        self._profile_loading = False
+        self.update_status()
+        dialog = MappingDialog(profile, monitors, reason, self)
+
+        def mapped(bindings: dict[str, str]) -> None:
+            if self.backend and not self.model.busy:
+                self._profile_loading = True
+                self.update_status()
+                self.backend.submit(
+                    "profile",
+                    "switch" if switch else "load",
+                    {"key": profile.id, "bindings": bindings},
+                )
+
+        dialog.mapped.connect(mapped)
+        self.mapping_dialog = dialog
+        dialog.show()
+
+    def profile_loaded(self, layout: Layout, switch: bool) -> None:
+        self._profile_loading = False
+        if self.model.inspection is None or self.model.busy:
+            return
+        try:
+            layout.validate(self.model.inspection.monitors)
+        except MonarchError as exc:
+            self.profile_message(str(exc))
+            return
+        self.model.draft = layout
+        self.model.stale = False
+        self.render_state()
+        if switch:
+            self.start_preview()
 
     def select_display(self, name: str) -> None:
         self.model.selected = name
@@ -542,6 +714,8 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
         self.identification.close()
+        if self.tray:
+            self.tray.hide()
         if self.backend and self.backend.isRunning():
             event.ignore()
             self.hide()

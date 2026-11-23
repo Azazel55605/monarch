@@ -3,11 +3,11 @@
 A native Python and Qt monitor manager for Hyprland, with visual layout editing,
 Lua integration, guarded previews, and explicit save-on-login configuration.
 
-**Status: Phase 3 implemented — manual-editor alpha (`0.1.0.dev3`).**
-Profiles and quick switching follow in Phase 4; automatic profile selection is
-Phase 5. There is no stable release or published Arch/AUR package yet.
+**Status: Phase 4 implemented — profile beta (`0.1.0.dev4`).**
+Named profiles and guarded quick switching are available; automatic profile
+selection follows in Phase 5. There is no stable release or published Arch/AUR package yet.
 
-![Monarch editing a synthetic multi-display layout](docs/assets/monarch-editor.png)
+![Monarch editing a synthetic multi-display layout](docs/assets/monarch-profiles.png)
 
 ## Run the editor
 
@@ -28,8 +28,16 @@ Applying requires a verified owned or explicitly registered configuration. Exist
 config files are not silently adopted. Read the [editor guide](docs/phase-3-guide.md)
 before enabling integration, especially its basic-settings and reload contract.
 
+Use **Appearance** to follow the system Qt theme or choose an available installed
+style. Compatible qt6ct/Kvantum/Breeze plugins are detected when available.
+See the [profiles and appearance guide](docs/phase-4-guide.md).
+
 ## Available now
 
+- Named profiles: observed/draft capture, CRUD, versioned import/export and a quick selector.
+- Stable identity matching with explicit mappings for ambiguous displays.
+- Guarded GUI/keybinding/terminal switching and optional `monarch gui --tray`.
+- Native Qt system themes and installed widget-style selection.
 - Proportional canvas with drag snapping, keyboard movement, and exact coordinates.
 - Enable/disable, advertised resolution/refresh, scale, transforms, and mirroring.
 - Separate observed and draft state, inline validation, and preserved stale edits
@@ -44,8 +52,8 @@ before enabling integration, especially its basic-settings and reload contract.
 The current write baseline is a clean Hyprland 0.57.2 Lua release. Default XDG
 config targets additionally require the verified hyprutils search implementation;
 other setups remain inspectable. Advanced HDR, VRR, color and custom modeline
-rules are outside the desktop integration contract until later work. Profiles,
-tray switching, automation and release packaging remain planned.
+rules are outside the desktop integration contract until later work. Automation
+and release packaging remain planned.
 
 ## Validation
 
@@ -55,6 +63,7 @@ scales. Read-only GUI startup was also checked on a physical three-output deskto
 Those are separate evidence layers: physical mode changes, docking/resume,
 hardware failure recovery and the full release matrix are not certified.
 
+- [Phase 4 evidence](docs/phase-4-report.md)
 - [Phase 3 evidence](docs/phase-3-report.md)
 - [Phased implementation plan](docs/implementation-plan.md)
 - [Progress tracker](docs/progress.md)
@@ -92,6 +101,7 @@ The Qt dependency is PySide6/Qt 6. Native probes require Wayland and render acce
 
 ```sh
 uv run --extra gui --group gui-dev python tools/probe_gui.py
+uv run --extra gui --group gui-dev python tools/probe_profiles.py
 uv run python tools/probe_recovery.py
 ```
 

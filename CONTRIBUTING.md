@@ -56,3 +56,10 @@ The root ownership check now accepts an explicit, hashed registration as well as
 the minimal owned root. Do not weaken either contract. Config source closure and
 basic-monitor delegation are operator-reviewed; arbitrary Lua is not parsed or
 executed for discovery. See the [Phase 3 guide](docs/phase-3-guide.md).
+
+Phase 4 adds `tools/probe_profiles.py` for native themes, three generic profiles,
+explicit mappings, GUI/tray confirmation and terminal switching in a disposable
+compositor. Catalog tests must cover unknown/future schema preservation, private
+storage and import conflicts; matching tests must never rely on connector equality
+to distinguish physically identical displays. Keep Qt offscreen, nested Wayland
+and physical-device evidence separate.

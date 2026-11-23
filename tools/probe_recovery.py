@@ -115,8 +115,7 @@ from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
 from monarch.services.coordinator import Coordinator
 from monarch.storage.managed import Managed
-async @contextmanager
-def nested_session(*, default_config=False):
+async def run():
  c=Coordinator(Session.from_environment(),state_home=Path(os.environ['PROBE_STATE']))
  layout=Layout.parse(json.loads(Path(os.environ['PROBE_LAYOUT']).read_text()))
  h=await c.preview(Managed(Path(os.environ['PROBE_ROOT'])),layout,seconds=10)

@@ -17,7 +17,7 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | 1 — Read-only foundation | Done | [Phase 1 implementation and feasibility report](phase-1-report.md); read-only native discovery and nested Lua round-trip |
 | 2 — Apply and recovery | Done | [Phase 2 evidence](phase-2-report.md); guarded CLI and native nested recovery matrix |
 | 3 — Qt manual editor | Done | [Phase 3 evidence](phase-3-report.md); Qt tests, native fractional-scale GUI and read-only physical startup |
-| 4 — Profiles/quick switch | Planned | None |
+| 4 — Profiles/quick switch | Done | [Phase 4 evidence](phase-4-report.md) |
 | 5 — Automatic switching | Planned | None |
 | 6 — Advanced settings | Planned | None |
 | 7 — Packaging/release | Planned | None |
@@ -44,9 +44,9 @@ completion. GitHub issues may mirror task IDs but must link back here.
 | M3.2 | Display controls, identification and validation UI | Done | [Display controls](../src/monarch/ui/window.py), [native identification](../src/monarch/ui/identify.py), [mapped-output evidence](phase-3-report.md) |
 | M3.3 | Keep/Revert, stale topology and dirty-state UX | Done | [Confirmation dialog](../src/monarch/ui/dialogs.py), [worker](../src/monarch/ui/worker.py); deadline, stale edits and GUI-close guard recovery tests |
 | M3.4 | Explicit save-on-login/config integration | Done | [Reviewed desktop integration](../src/monarch/storage/integration.py), [guide](phase-3-guide.md), [native GUI probe](../tools/probe_gui.py); pinned sources and conflict handling |
-| M4.1 | Versioned profile CRUD, migration, import/export | Planned | Invalid/future-schema, atomic storage and migration fixtures |
-| M4.2 | Stable identity mapping and missing/ambiguous outputs | Planned | Connector rename and duplicate/absent serial scenarios |
-| M4.3 | GUI/tray quick switching and CLI/keybinding interface | Planned | Shared transaction and confirmation across entry points |
+| M4.1 | Versioned profile CRUD, migration, import/export | Done | [Catalog](../src/monarch/storage/profiles.py), [tests](../tests/test_profiles.py) |
+| M4.2 | Stable identity mapping and missing/ambiguous outputs | Done | [Resolver](../src/monarch/domain/profiles.py), [explicit mapping UI](../src/monarch/ui/profiles.py) |
+| M4.3 | GUI/tray quick switching and CLI/keybinding interface | Done | [Guide](phase-4-guide.md), [native probe](../tools/probe_profiles.py), shared guard and PTY tests |
 | M5.1 | Policy matching, priority, ambiguity and manual pin | Planned | Deterministic topology matrix |
 | M5.2 | Watcher, debounce, backoff and feedback suppression | Planned | Reconnect, storms, no match and failure tests |
 | M5.3 | Opt-in autostart and native dock/resume acceptance | Planned | Enable/disable lifecycle and real-session report |
@@ -59,9 +59,18 @@ completion. GitHub issues may mirror task IDs but must link back here.
 
 ## Current next action
 
-Start Phase 4: versioned profile storage, CRUD/import/export, stable identity
-mapping and quick switching through the existing coordinator. Automatic selection
-stays in Phase 5. Physical modesetting and the broader release matrix remain open.
+Start Phase 5: opt-in topology matching, priority/ambiguity policy, debounce,
+manual overrides, backoff and session lifecycle. Profiles and themes are available.
+Physical modesetting and the broader release matrix remain open; native virtual
+disable/re-enable cycling has an unresolved timeout recorded in the Phase 4 report.
+
+## Phase 4 checks
+
+See the [Phase 4 report](phase-4-report.md) and [guide](phase-4-guide.md).
+Native qt6ct/style discovery, three generic profiles, import/export, explicit
+mapping, GUI Keep/Revert/persistence, tray action confirmation, client-close
+recovery and PTY CLI switching passed in a disposable compositor. Parent monitor
+settings were not changed.
 
 ## Phase 3 checks
 

@@ -13,11 +13,13 @@ from monarch.backends.hyprland.events import EventWatcher
 from monarch.backends.hyprland.inspector import Inspector
 from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
+from monarch.domain.profiles import MappingRequired, resolve
 from monarch.errors import MonarchError
 from monarch.services.coordinator import Coordinator, Preview
 from monarch.services.state import TERMINAL
 from monarch.storage.integration import IntegrationPlan
 from monarch.storage.managed import Managed
+from monarch.storage.profiles import ProfileStore, config_home
 
 
 class BackendThread(QThread):
@@ -28,6 +30,11 @@ class BackendThread(QThread):
     integration_ready = Signal(object)
     installed = Signal(object)
     ownership = Signal(object)
+    profiles = Signal(object)
+    profile_loaded = Signal(object, bool)
+    profile_notice = Signal(str)
+    profile_failed = Signal(str)
+    profile_mapping = Signal(object, object, bool, str)
 
     def __init__(
         self,
@@ -50,6 +57,7 @@ class BackendThread(QThread):
         self._tasks: set[asyncio.Task[Any]] = set()
         self._plan: IntegrationPlan | None = None
         self._plan_layout: Layout | None = None
+        self.profile_store = ProfileStore(config_home(env))
         self.inspector: Inspector | None = None
         self.coordinator: Coordinator | None = None
 
@@ -70,6 +78,10 @@ class BackendThread(QThread):
             )
             self.coordinator = Coordinator(self.session, env=self.env, executable=self.executable)
             await self._refresh()
+            try:
+                self.profiles.emit(self.profile_store.list())
+            except (MonarchError, OSError) as exc:
+                self.profile_failed.emit(str(exc))
             self._ready = True
             task = asyncio.create_task(self._watch())
             self._tasks.add(task)
@@ -92,7 +104,12 @@ class BackendThread(QThread):
 
         async def dispatch() -> None:
             try:
-                if operation == "refresh":
+                if operation == "profile":
+                    try:
+                        await self._profile(*args)
+                    except (MonarchError, OSError, ValueError) as exc:
+                        self.profile_failed.emit(str(exc))
+                elif operation == "refresh":
                     await self._refresh()
                 elif operation == "preview":
                     await self._preview(*args)
@@ -239,6 +256,58 @@ class BackendThread(QThread):
         self._plan = None
         self.installed.emit(self.directory)
         await self._refresh()
+
+    async def _profile(self, *args: object) -> None:
+        operation, payload = args
+        assert isinstance(operation, str) and isinstance(payload, dict)
+        if self.previewing or self.handle is not None:
+            raise MonarchError("Wait for the active preview before using profiles.")
+        store = self.profile_store
+        key = str(payload.get("key", ""))
+        if operation in {"load", "switch", "capture"}:
+            assert self.inspector is not None
+            inspection = await self.inspector.inspect()
+            if operation == "capture":
+                store.save(str(payload["name"]), Layout.capture(inspection.monitors))
+            else:
+                profile = store.get(key)
+                try:
+                    layout = resolve(profile, inspection.monitors, payload.get("bindings"))
+                except MappingRequired as exc:
+                    self.profile_mapping.emit(
+                        profile, inspection.monitors, operation == "switch", str(exc)
+                    )
+                    return
+                self.observed.emit(inspection)
+                self.profile_loaded.emit(layout, operation == "switch")
+                return
+        elif operation in {"save", "update"}:
+            layout = payload["layout"]
+            if not isinstance(layout, Layout):
+                raise MonarchError("No valid edited layout is available.")
+            # Saving a draft does not require the displays to stay connected, but
+            # the data must be structurally valid and never silently changed.
+            store.save(
+                str(payload.get("name", "")) if operation == "save" else store.get(key).name,
+                layout,
+                identifier=key if operation == "update" else None,
+            )
+        elif operation == "rename":
+            profile = store.get(key)
+            store.rename(profile.id, str(payload["name"]))
+        elif operation == "delete":
+            store.delete(key)
+        elif operation == "import":
+            store.import_file(Path(str(payload["path"])))
+        elif operation == "export":
+            store.export_file(Path(str(payload["path"])), key)
+        elif operation != "list":
+            raise MonarchError("Unknown profile operation.")
+        self.profiles.emit(store.list())
+        if operation != "list":
+            self.profile_notice.emit(
+                "Profile operation completed. Saving profiles does not apply settings."
+            )
 
     def shutdown(self) -> None:
         self.closing = True
