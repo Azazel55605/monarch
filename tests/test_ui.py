@@ -856,3 +856,27 @@ def test_gui_tray_default_and_explicit_opt_out(monkeypatch):
     assert calls[-1]["tray"] is True
     assert main(["gui", "--no-tray"]) == 0
     assert calls[-1]["tray"] is False
+
+
+def test_selecting_nearby_monitor_does_not_snap_or_change_layout(qtbot):
+    from monarch.domain.layout import Layout, Output
+    from monarch.ui.canvas import FACTOR, LayoutCanvas
+
+    outputs = (
+        Output("LEFT", "", "", "", "1920x1080@60", 1, 0, 0, 0),
+        Output("RIGHT", "", "", "", "1920x1080@60", 1, 0, 1950, 0),
+    )
+    canvas = LayoutCanvas()
+    qtbot.addWidget(canvas)
+    canvas.show()
+    canvas.display(Layout(outputs), "LEFT", True)
+    item = canvas.items_by_name["RIGHT"]
+    moved = []
+    canvas.moved.connect(lambda *args: moved.append(args))
+    qtbot.mouseClick(
+        canvas.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=canvas.mapFromScene(item.sceneBoundingRect().center()),
+    )
+    assert round(item.pos().x() / FACTOR) == 1950
+    assert not moved

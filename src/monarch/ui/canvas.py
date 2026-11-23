@@ -50,6 +50,7 @@ class DisplayItem(QGraphicsObject):
 
     def __init__(self, output: Output, number: int, layout: Layout, editable: bool) -> None:
         super().__init__()
+        self._dragged = False
         self.output = output
         self.number = number
         self.layout = layout
@@ -121,6 +122,7 @@ class DisplayItem(QGraphicsObject):
         )
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        self._dragged = False
         if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
             self.editing.emit()
         self.selected.emit(self.output.name)
@@ -144,11 +146,12 @@ class DisplayItem(QGraphicsObject):
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         super().mouseMoveEvent(event)
         if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+            self._dragged = True
             self.snap_position(bypass=bool(event.modifiers() & Qt.KeyboardModifier.AltModifier))
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         super().mouseReleaseEvent(event)
-        if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+        if self._dragged and self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
             x, y = self.snap_position(
                 bypass=bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
             )

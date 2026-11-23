@@ -28,7 +28,8 @@ Nord-style palettes without changing the application's global theme.
 Dragging snaps live to nearby display edges/alignment within 12 viewport pixels;
 the tolerance is converted through the view zoom to logical monitor coordinates.
 Targets far away on the perpendicular axis do not attract the moving monitor.
-Hold Alt for free placement. Numeric and keyboard placement remain precise.
+Hold Alt for free placement. Selecting a display without dragging does not snap
+or move it. Numeric and keyboard placement remain precise.
 Draft geometry is committed on release; dragging never applies a monitor change.
 
 ![Synthetic displays under the native Qt platform theme](assets/monarch-canvas-rc2.png)
