@@ -1,0 +1,45 @@
+# Development package built from upstream main.
+pkgname=monarch-displays-git
+pkgver=0.1.0rc9.r35.gce523f48
+pkgrel=1
+pkgdesc='Native Qt monitor profiles and guarded previews for Hyprland (Git version)'
+arch=('any')
+url='https://github.com/Azazel55605/monarch'
+license=('MIT')
+depends=('python>=3.12' 'pyside6>=6.8' 'pyside6<7' 'qt6-svg' 'hicolor-icon-theme' 'hyprland')
+makedepends=('git' 'python-build' 'python-installer' 'python-hatchling')
+checkdepends=('python-pytest' 'python-pytest-qt' 'desktop-file-utils')
+provides=("monarch-displays=${pkgver}")
+conflicts=('monarch-displays')
+source=("monarch::git+${url}.git#branch=main")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/monarch"
+    local version revision commit
+    version=$(/usr/bin/python -c '
+import tomllib
+with open("pyproject.toml", "rb") as project:
+    print(tomllib.load(project)["project"]["version"])
+') || return
+    revision=$(git rev-list --count HEAD) || return
+    commit=$(git rev-parse --short=8 HEAD) || return
+    printf '%s.r%s.g%s\n' "$version" "$revision" "$commit"
+}
+
+build() {
+    cd "$srcdir/monarch"
+    /usr/bin/python -m build --wheel --no-isolation --outdir "$srcdir/wheel/$pkgver"
+}
+
+check() {
+    cd "$srcdir/monarch"
+    desktop-file-validate packaging/org.monarch.Monarch.desktop
+    PYTHONPATH=src QT_QPA_PLATFORM=offscreen PYTEST_QT_API=pyside6 /usr/bin/python -m pytest -q
+}
+
+package() {
+    cd "$srcdir/monarch"
+    /usr/bin/python -m installer --destdir="$pkgdir" "$srcdir/wheel/$pkgver/"*.whl
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

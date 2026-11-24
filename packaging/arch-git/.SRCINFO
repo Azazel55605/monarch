@@ -1,0 +1,26 @@
+pkgbase = monarch-displays-git
+	pkgdesc = Native Qt monitor profiles and guarded previews for Hyprland (Git version)
+	pkgver = 0.1.0rc9.r35.gce523f48
+	pkgrel = 1
+	url = https://github.com/Azazel55605/monarch
+	arch = any
+	license = MIT
+	checkdepends = python-pytest
+	checkdepends = python-pytest-qt
+	checkdepends = desktop-file-utils
+	makedepends = git
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-hatchling
+	depends = python>=3.12
+	depends = pyside6>=6.8
+	depends = pyside6<7
+	depends = qt6-svg
+	depends = hicolor-icon-theme
+	depends = hyprland
+	provides = monarch-displays=0.1.0rc9.r35.gce523f48
+	conflicts = monarch-displays
+	source = monarch::git+https://github.com/Azazel55605/monarch.git#branch=main
+	sha256sums = SKIP
+
+pkgname = monarch-displays-git

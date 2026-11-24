@@ -45,6 +45,19 @@ tray enabled. Closing hides to the tray when a host is available; Quit Monarch
 exits. Use `monarch gui --no-tray` for exit on close. Terminal launch is `monarch gui --tray`. It matches Qt's Wayland app ID
 and includes an original SVG icon. Installing does not enable startup or automation.
 
+## Build the Git package on Arch/Garuda
+
+From a checkout, run:
+
+```sh
+cd packaging/arch-git
+makepkg -si
+```
+
+`monarch-displays-git` builds the current upstream `main` and includes the
+Git revision in its package version. Pacman treats it as an alternative to
+`monarch-displays`. Rebuild it with `makepkg -si` to pick up later commits.
+
 ## Alternative: isolated Python installation
 
 For testing without a system package, create a virtual environment and install
