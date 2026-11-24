@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -40,6 +39,7 @@ from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
 from monarch.domain.quick_layout import arrange_external, connection_key, external, identity
+from monarch.domain.scaling import nearest_scale, scale_fits, valid_scales
 from monarch.errors import MonarchError
 from monarch.resources import APP_ID, icon_path
 from monarch.ui.automation import AutomationDialog
@@ -214,10 +214,7 @@ class MainWindow(QMainWindow):
         self.refresh_rate.setObjectName("refreshRate")
         form.addRow("Resolution", self.resolution)
         form.addRow("Refresh rate", self.refresh_rate)
-        self.scale = QDoubleSpinBox()
-        self.scale.setRange(0.25, 8)
-        self.scale.setDecimals(4)
-        self.scale.setSingleStep(0.25)
+        self.scale = QComboBox()
         self.scale.setAccessibleName("Display scale")
         self.scale.setObjectName("scale")
         form.addRow("Scale", self.scale)
@@ -241,10 +238,6 @@ class MainWindow(QMainWindow):
         self.vrr.setAccessibleName("Variable refresh rate policy")
         self.vrr.addItem("Off", 0)
         self.vrr.addItem("On", 1)
-        self.vrr.setToolTip(
-            "Per-display VRR policy. Off/On uses Keep/Revert and Save on login. "
-            "Fullscreen-only policies are not supported yet."
-        )
         form.addRow("VRR", self.vrr)
         self.position_x = QSpinBox()
         self.position_y = QSpinBox()
@@ -269,7 +262,14 @@ class MainWindow(QMainWindow):
         self.advanced_button.clicked.connect(self.show_advanced)
         form.addRow(self.advanced_button)
         self.properties = properties
-        for combo in (self.resolution, self.refresh_rate, self.rotation, self.vrr, self.mirror):
+        for combo in (
+            self.resolution,
+            self.refresh_rate,
+            self.scale,
+            self.rotation,
+            self.vrr,
+            self.mirror,
+        ):
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         inspector = QScrollArea()
         inspector.setWidgetResizable(True)
@@ -319,7 +319,7 @@ class MainWindow(QMainWindow):
         self.vrr.currentIndexChanged.connect(self.fields_changed)
         self.refresh_rate.currentIndexChanged.connect(self.fields_changed)
         self.enabled.toggled.connect(self.fields_changed)
-        self.scale.valueChanged.connect(self.fields_changed)
+        self.scale.currentIndexChanged.connect(self.fields_changed)
         self.rotation.currentIndexChanged.connect(self.fields_changed)
         self.position_x.valueChanged.connect(self.fields_changed)
         self.position_y.valueChanged.connect(self.fields_changed)
@@ -409,6 +409,7 @@ class MainWindow(QMainWindow):
     def load_properties(self) -> None:
         self.loading = True
         output = self.model.output(self.model.selected)
+        self.vrr.setEnabled(False)
         self.properties.setEnabled(
             output is not None and not self.model.busy and not self._profile_loading
         )
@@ -419,6 +420,16 @@ class MainWindow(QMainWindow):
             )
             self.enabled.setChecked(output.enabled)
             self.vrr.setCurrentIndex(output.vrr)
+            if monitor is None or identity(monitor) != identity(output):
+                vrr_hint = "VRR requires the display from this layout to be connected."
+            elif monitor.advanced.vrr_capable is False:
+                vrr_hint = "This display reports no VRR support."
+            elif monitor.advanced.vrr_capable is None or monitor.advanced.vrr_active is None:
+                vrr_hint = "Hyprland could not verify this display’s VRR capability or state."
+            else:
+                self.vrr.setEnabled(True)
+                vrr_hint = "Preview or save this display’s VRR On/Off policy."
+            self.vrr.setToolTip(vrr_hint)
             self.resolution.clear()
             resolutions = []
             if monitor:
@@ -438,7 +449,7 @@ class MainWindow(QMainWindow):
             else:
                 self.resolution.setCurrentIndex(-1)
             self.populate_refresh(output.mode)
-            self.scale.setValue(output.scale)
+            self.populate_scale(output.mode, output.scale)
             self.rotation.setCurrentIndex(output.transform)
             self.position_x.setValue(output.x)
             self.position_y.setValue(output.y)
@@ -478,11 +489,36 @@ class MainWindow(QMainWindow):
         index = self.refresh_rate.findData(selected)
         self.refresh_rate.setCurrentIndex(index if index >= 0 else (-1 if selected else 0))
 
+    def populate_scale(self, mode_name: str, current: float, *, adjust: bool = False) -> None:
+        self.scale.clear()
+        self.scale.setEnabled(mode_name != "preferred")
+        if mode_name == "preferred":
+            self.scale.setPlaceholderText("Choose a resolution")
+            return
+        mode = Mode.parse(mode_name + "Hz")
+        choices = valid_scales(mode)
+        if 0.25 <= current <= 8 and scale_fits(mode, current):
+            # Preserve the exact current scale, including valid custom or legacy values.
+            choices = tuple(sorted((current, *(s for s in choices if abs(s - current) > 1e-6))))
+        elif adjust:
+            current = nearest_scale(choices, current)
+        self.scale.setPlaceholderText("Choose a valid scale")
+        self.scale.setToolTip("Available scales produce whole logical pixels at this resolution.")
+        for value in choices:
+            self.scale.addItem(f"{value:.3f}".rstrip("0").rstrip(".") + "×", value)
+        self.scale.setCurrentIndex(self.scale.findData(current))
+
     def resolution_changed(self, *args: object) -> None:
         if self.loading:
             return
+        current = self.model.output(self.model.selected)
+        if current is None:
+            return
         self.loading = True
         self.populate_refresh()
+        mode = self.refresh_rate.currentData()
+        if mode:
+            self.populate_scale(mode, current.scale, adjust=True)
         self.loading = False
         self.fields_changed()
 
@@ -493,9 +529,7 @@ class MainWindow(QMainWindow):
         if current is None:
             return
         mode = self.refresh_rate.currentData() or current.mode
-        scale = self.scale.value()
-        if scale == round(current.scale, self.scale.decimals()):
-            scale = current.scale
+        scale = self.scale.currentData() or current.scale
         self.model.update(
             self.model.selected,
             mode=mode,
@@ -505,7 +539,7 @@ class MainWindow(QMainWindow):
             x=self.position_x.value(),
             y=self.position_y.value(),
             mirror=self.mirror.currentData() or "",
-            vrr=self.vrr.currentData(),
+            vrr=self.vrr.currentData() if self.vrr.isEnabled() else current.vrr,
         )
         self.render_state()
 

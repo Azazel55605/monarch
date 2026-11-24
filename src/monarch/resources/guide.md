@@ -34,6 +34,9 @@ rules and other display controllers are outside its recovery contract.
 
 Arrange displays or edit numeric settings. Apply starts a guarded preview; use
 Keep only if the layout works. Revert, timeout or client exit requests restoration.
+The Scale selector shows values that produce whole logical pixels at the selected
+resolution. Changing resolution keeps the current scale if it fits or selects
+the nearest valid value.
 Save on login persists only after Keep. A profile saved in the catalog does not
 by itself change startup monitor settings.
 
@@ -49,6 +52,12 @@ changes apply to the live session. Manual edits pause switching until the connec
 displays change. An explicit tray pause lasts until Resume automatic switching.
 After upgrading, use Resume once if there is a pause from an older build. Saved ports is an explicit
 fixed-cabling option for otherwise ambiguous displays.
+
+For new external displays without a matching profile, Monarch can preview the
+highest advertised resolution and refresh rate. Set the global scale preferences
+under Automation. The defaults are 1.33× for 2560 × 1440 and 1.5× for 3840 × 2160.
+Monarch uses the closest scale that produces whole logical pixels for the chosen
+mode. Saved profiles use their own scale.
 
 Start at login is a separate opt-in XDG entry. A session autostart host must run it;
 plain Hyprland alone does not guarantee that. `monarch automation run` starts a

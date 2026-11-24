@@ -176,9 +176,18 @@ class Automation:
             )
             if added:
                 try:
-                    layout = new_display_layout(inspection.monitors, baseline, added, disk=disk)
+                    layout = new_display_layout(
+                        inspection.monitors,
+                        baseline,
+                        added,
+                        disk=disk,
+                        scale_defaults={
+                            (2560, 1440): policy.scale_1440p,
+                            (3840, 2160): policy.scale_4k,
+                        },
+                    )
                     self.selection = Selection(
-                        "Best advertised mode for new external displays.", layout=layout
+                        "Best advertised mode and scale for new external displays.", layout=layout
                     )
                 except MonarchError as exc:
                     self.selection = Selection(str(exc))

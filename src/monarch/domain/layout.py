@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from monarch.domain.monitors import Mode, Monitor
+from monarch.domain.scaling import scale_fits
 from monarch.errors import MonarchError
 
 
@@ -54,7 +55,7 @@ class Output:
                 raise MonarchError("Use an advertised WIDTHxHEIGHT@HZ mode.") from exc
             if mode.width > 65536 or mode.height > 65536 or mode.refresh_hz > 10000:
                 raise MonarchError("Mode exceeds the supported limits.")
-            if any(abs(v / scale - round(v / scale)) > 0.001 for v in (mode.width, mode.height)):
+            if not scale_fits(mode, scale):
                 raise MonarchError("Scale must produce integer logical dimensions.")
         elif row["enabled"] and not allow_preferred:
             raise MonarchError(

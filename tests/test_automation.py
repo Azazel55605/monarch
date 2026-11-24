@@ -290,7 +290,20 @@ def test_generated_desktop_entry_validates_with_spaces_and_percent(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_new_display_fallback_with_no_catalog_runs_guarded_preview(guard_setup, tmp_path):
+@pytest.mark.parametrize(
+    ("modes", "expected_mode", "expected_scale"),
+    [
+        (
+            ["2560x1440@143.97Hz", "3840x2160@60Hz", "3840x2160@120Hz", "1920x1080@240Hz"],
+            "3840x2160@120",
+            1.5,
+        ),
+        (["2560x1440@143.97Hz", "1920x1080@240Hz"], "2560x1440@143.97", 4 / 3),
+    ],
+)
+def test_new_display_fallback_with_no_catalog_runs_guarded_preview(
+    guard_setup, tmp_path, modes, expected_mode, expected_scale
+):
     coordinator, managed, _, _, state = guard_setup
     raw = json.loads(state.read_text())
     extra = dict(
@@ -298,12 +311,7 @@ def test_new_display_fallback_with_no_catalog_runs_guarded_preview(guard_setup, 
         name="DP-NEW",
         serial="NEW",
         x=5000,
-        availableModes=[
-            "2560x1440@143.97Hz",
-            "3840x2160@60Hz",
-            "3840x2160@120Hz",
-            "1920x1080@240Hz",
-        ],
+        availableModes=modes,
     )
     raw["monitors"].append(extra)
     state.write_text(json.dumps(raw))
@@ -320,7 +328,8 @@ def test_new_display_fallback_with_no_catalog_runs_guarded_preview(guard_setup, 
         assert engine.evaluate(inspection, idle=True, ready=True, now=0, managed=managed)[1] is None
         _, proposal = engine.evaluate(inspection, idle=True, ready=True, now=2, managed=managed)
         assert proposal is not None and proposal.profile is None
-        assert proposal.layout.outputs[-1].mode == "3840x2160@120"
+        assert proposal.layout.outputs[-1].mode == expected_mode
+        assert proposal.layout.outputs[-1].scale == expected_scale
         assert proposal.layout.outputs[-1].x == 853  # right edge of the original panel
 
         async def run():

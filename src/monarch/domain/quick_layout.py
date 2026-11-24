@@ -1,12 +1,13 @@
 """Build guarded layout candidates for external display shortcuts."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from decimal import Decimal
 from hashlib import sha256
 
 from monarch.domain.layout import Layout, Output, capture_output
 from monarch.domain.monitors import Monitor
+from monarch.domain.scaling import nearest_scale, scale_fits, valid_scales
 from monarch.errors import MonarchError
 
 
@@ -22,12 +23,17 @@ def connection_key(outputs: Iterable[Output | Monitor]) -> str:
     return sha256(repr(sorted(identity(output) for output in outputs)).encode()).hexdigest()
 
 
-def best_mode(output: Output, monitor: Monitor) -> Output:
+def best_mode(
+    output: Output, monitor: Monitor, scale_defaults: Mapping[tuple[int, int], float] | None = None
+) -> Output:
     if not monitor.modes:
         raise MonarchError("The external display has no advertised modes.")
     mode = max(monitor.modes, key=lambda m: (m.width * m.height, m.refresh_hz, m.width))
     scale = output.scale
-    if any(abs(n / scale - round(n / scale)) > 0.001 for n in (mode.width, mode.height)):
+    preferred = scale_defaults.get((mode.width, mode.height)) if scale_defaults else None
+    if preferred is not None:
+        scale = nearest_scale(valid_scales(mode), preferred)
+    elif not scale_fits(mode, scale):
         scale = 1
     return replace(output, mode=f"{mode.width}x{mode.height}@{mode.refresh_hz}", scale=scale)
 
@@ -56,9 +62,7 @@ def hotplug_baseline(monitors: tuple[Monitor, ...], baseline: Layout, disk: Layo
             # dimensions if the replacement has a mode for them.
             mode = (same_size or list(monitor.modes))[0]
             scale = monitor.scale
-            if scale and any(
-                abs(n / scale - round(n / scale)) > 0.001 for n in (mode.width, mode.height)
-            ):
+            if scale and not scale_fits(mode, scale):
                 scale = 1
             monitor = replace(
                 monitor,
@@ -77,6 +81,7 @@ def new_display_layout(
     added: tuple[Monitor, ...],
     *,
     disk: Layout | None = None,
+    scale_defaults: Mapping[tuple[int, int], float] | None = None,
 ) -> Layout:
     current = {o.name: o for o in hotplug_baseline(monitors, baseline, disk or baseline).outputs}
     names = {m.name for m in added}
@@ -88,7 +93,7 @@ def new_display_layout(
     x = max(o.x + o.size[0] for o in existing)
     y = min(o.y for o in existing)
     for monitor in sorted(added, key=lambda m: m.name):
-        output = best_mode(current[monitor.name], monitor)
+        output = best_mode(current[monitor.name], monitor, scale_defaults)
         current[monitor.name] = replace(output, enabled=True, mirror="", x=x, y=y)
         x += output.size[0]
     layout = Layout(tuple(current.values()))

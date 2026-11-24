@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QLabel,
     QSpinBox,
@@ -49,6 +50,21 @@ class AutomationDialog(QDialog):
         self.autostart.setChecked(autostart)
         form.addRow(self.enabled)
         form.addRow(self.new_displays)
+        self.scale_1440p = QDoubleSpinBox()
+        self.scale_4k = QDoubleSpinBox()
+        for caption, field, value in (
+            ("New 1440p display scale", self.scale_1440p, policy.scale_1440p),
+            ("New 4K UHD display scale", self.scale_4k, policy.scale_4k),
+        ):
+            field.setRange(0.25, 8)
+            field.setDecimals(3)
+            field.setSingleStep(0.05)
+            field.setSuffix("×")
+            field.setValue(value)
+            field.setToolTip("Monarch uses the closest scale that gives whole logical pixels.")
+            field.setEnabled(policy.new_displays)
+            self.new_displays.toggled.connect(field.setEnabled)
+            form.addRow(caption, field)
         form.addRow(self.autostart)
         layout.addLayout(form)
         self.table = QTableWidget(len(profiles), 5)
@@ -105,6 +121,12 @@ class AutomationDialog(QDialog):
             if enabled.isChecked()
         )
         self.saved.emit(
-            Policy(self.enabled.isChecked(), rules, self.new_displays.isChecked()),
+            Policy(
+                enabled=self.enabled.isChecked(),
+                rules=rules,
+                new_displays=self.new_displays.isChecked(),
+                scale_1440p=self.scale_1440p.value(),
+                scale_4k=self.scale_4k.value(),
+            ),
             self.autostart.isChecked(),
         )

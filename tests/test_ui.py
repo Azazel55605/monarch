@@ -44,15 +44,13 @@ def window(qtbot, inspection):
 
 def test_numeric_edit_updates_geometry_dirty_and_validation(window, qtbot):
     assert not window.apply.isEnabled()
-    window.scale.setValue(2)
+    window.scale.setCurrentIndex(window.scale.findData(2.0))
     assert window.model.dirty
     assert window.model.draft.outputs[0].scale == 2
     assert window.apply.isEnabled()
     window.position_x.setValue(-1280)
     assert window.model.draft.outputs[0].x == -1280
-    window.scale.setValue(1.5)
-    assert "integer logical" in window.validation.text()
-    assert not window.apply.isEnabled()
+    assert window.scale.findData(1.5) == -1
     window.discard_edits()
     assert not window.model.dirty
 
@@ -71,6 +69,18 @@ def test_display_controls_keep_parity_and_forbid_all_disabled(window, qtbot):
     window.mirror.setCurrentIndex(window.mirror.findData("DP-EXAMPLE"))
     assert window.model.output("HDMI-EXAMPLE").mirror == "DP-EXAMPLE"
     assert not window.position_x.isEnabled()
+
+
+def test_vrr_selector_follows_display_capability(window, inspection):
+    assert not window.vrr.isEnabled()
+    monitor, other = inspection.monitors
+    capable = replace(monitor, advanced=replace(monitor.advanced, vrr_capable=True))
+    window.receive(replace(inspection, monitors=(capable, other)))
+    assert window.vrr.isEnabled()
+    window.select_display(other.name)
+    assert not window.vrr.isEnabled()
+    window.select_display(monitor.name)
+    assert window.vrr.isEnabled()
 
 
 def test_keyboard_canvas_and_numeric_positions_share_model(window, qtbot):
@@ -112,7 +122,7 @@ def test_hotplug_preserves_draft_and_revalidation_blocks_missing_outputs(window,
 
 
 def test_pending_preview_locks_fields_and_uses_guard_deadline(window, qtbot):
-    window.scale.setValue(2)
+    window.scale.setCurrentIndex(window.scale.findData(2.0))
     with qtbot.waitSignal(window.preview_requested):
         window.start_preview()
     assert window.model.busy and not window.properties.isEnabled()
@@ -206,7 +216,7 @@ def test_real_worker_routes_gui_keep_and_close_through_guard(
     worker.start()
     try:
         qtbot.waitUntil(lambda: widget.ready and widget.model.inspection is not None, timeout=10000)
-        widget.scale.setValue(2)
+        widget.scale.setCurrentIndex(widget.scale.findData(2.0))
         widget.persist.setChecked(True)
         widget.start_preview()
         qtbot.waitUntil(lambda: widget.confirmation is not None, timeout=10000)
@@ -285,6 +295,29 @@ def test_position_edits_preserve_nonterminating_scale_precision(window, inspecti
     window.model.observed = None
     window.receive(fractional)
     window.position_x.setValue(-1920)
+    assert window.model.draft.outputs[0].scale == 4 / 3
+    assert not window.model.error()
+
+
+def test_scale_choices_follow_resolution_and_keep_exact_values(window, inspection):
+    from monarch.domain.monitors import Mode
+
+    monitor, other = inspection.monitors
+    monitor = replace(monitor, modes=(*monitor.modes, Mode.parse("3840x2160@60Hz")))
+    window.receive(replace(inspection, monitors=(monitor, other)))
+
+    assert window.scale.findData(1.5) == -1
+    window.resolution.setCurrentText("3840 × 2160")
+    assert window.model.draft.outputs[0].mode == "3840x2160@60"
+    assert window.scale.currentData() == 1.0
+    window.scale.setCurrentIndex(window.scale.findData(1.5))
+    assert window.model.draft.outputs[0].scale == 1.5
+
+    window.resolution.setCurrentText("2560 × 1440")
+    assert window.scale.currentData() == 1.6
+    assert window.model.draft.outputs[0].scale == 1.6
+    window.scale.setCurrentIndex(window.scale.findData(4 / 3))
+    assert window.scale.currentText() == "1.333×"
     assert window.model.draft.outputs[0].scale == 4 / 3
     assert not window.model.error()
 

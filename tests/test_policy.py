@@ -9,6 +9,17 @@ from monarch.domain.profiles import Profile
 from monarch.errors import MonarchError
 
 
+def test_policy_loads_older_files_with_scale_defaults_and_round_trips_custom_values():
+    legacy = {"schema_version": 1, "enabled": True, "rules": [], "new_displays": True}
+    assert Policy.parse(legacy) == Policy(enabled=True, new_displays=True)
+    custom = Policy.parse(dict(legacy, scale_1440p=1.25, scale_4k=2))
+    assert custom.scale_1440p == 1.25
+    assert custom.scale_4k == 2
+    assert Policy.parse(custom.to_dict()) == custom
+    with pytest.raises(MonarchError, match="scale preferences"):
+        Policy.parse(dict(legacy, scale_4k=float("nan")))
+
+
 @pytest.fixture
 def data(monitors):
     monitors[0]["scale"] = 1

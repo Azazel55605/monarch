@@ -51,16 +51,16 @@ class Policy:
     enabled: bool = False
     rules: tuple[Rule, ...] = ()
     new_displays: bool = False
+    scale_1440p: float = 1.33
+    scale_4k: float = 1.5
 
     @classmethod
     def parse(cls, value: object) -> "Policy":
         if (
             not isinstance(value, dict)
-            or set(value)
-            not in (
-                {"schema_version", "enabled", "rules"},
-                {"schema_version", "enabled", "rules", "new_displays"},
-            )
+            or not {"schema_version", "enabled", "rules"} <= value.keys()
+            or value.keys()
+            - {"schema_version", "enabled", "rules", "new_displays", "scale_1440p", "scale_4k"}
             or type(value.get("new_displays", False)) is not bool
             or type(value["schema_version"]) is not int
             or value["schema_version"] != 1
@@ -72,7 +72,15 @@ class Policy:
         rules = tuple(Rule.parse(row) for row in value["rules"])
         if len({r.profile for r in rules}) != len(rules):
             raise MonarchError("Each profile may have only one automatic matching rule.")
-        return cls(value["enabled"], rules, value.get("new_displays", False))
+        defaults = cls()
+        scale_1440p = value.get("scale_1440p", defaults.scale_1440p)
+        scale_4k = value.get("scale_4k", defaults.scale_4k)
+        if any(
+            type(scale) not in (int, float) or not 0.25 <= scale <= 8
+            for scale in (scale_1440p, scale_4k)
+        ):
+            raise MonarchError("New display scale preferences must be between 0.25 and 8.")
+        return cls(value["enabled"], rules, value.get("new_displays", False), scale_1440p, scale_4k)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +88,8 @@ class Policy:
             "enabled": self.enabled,
             "rules": [r.to_dict() for r in self.rules],
             **({"new_displays": True} if self.new_displays else {}),
+            "scale_1440p": self.scale_1440p,
+            "scale_4k": self.scale_4k,
         }
 
 
