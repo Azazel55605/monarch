@@ -41,10 +41,12 @@ def best_mode(
 def hotplug_baseline(monitors: tuple[Monitor, ...], baseline: Layout, disk: Layout) -> Layout:
     """Capture current geometry, substituting a safe timing for a reused port."""
     policies = {identity(o): o.vrr for o in baseline.outputs}
+    hdr_bindings = baseline.hdr_bindings(monitors)
     saved = {o.name: identity(o) for o in disk.outputs}
     outputs = []
     for monitor in monitors:
-        policy = policies.get(identity(monitor), 0)
+        hdr_output = hdr_bindings.get(monitor.name)
+        policy = hdr_output.vrr if hdr_output else policies.get(identity(monitor), 0)
         same_size = [
             m for m in monitor.modes if (m.width, m.height) == (monitor.width, monitor.height)
         ]

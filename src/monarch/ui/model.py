@@ -70,6 +70,7 @@ def draft_layout(monitors: tuple[Monitor, ...]) -> Layout:
                 m.disabled is not True,
                 m.mirror_of or "",
                 int(m.advanced.vrr_active is True),
+                m.disabled is False and m.advanced.hdr_active,
             )
         )
     return Layout(tuple(outputs))

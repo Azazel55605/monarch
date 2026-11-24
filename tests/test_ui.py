@@ -735,6 +735,22 @@ def test_hdr_preview_from_advanced_dialog_and_editor_use_do_not_pause_automation
         qtbot.waitUntil(lambda: not window.model.busy and window.ready, timeout=10000)
         assert "SDR restored" in window.notice
         assert not control(coordinator.paths)["pinned"]
+
+        assert window.hdr.isEnabled()
+        window.hdr.setCurrentIndex(1)
+        assert window.model.draft.outputs[0].hdr
+        assert window.apply.isEnabled()
+        window.persist.setChecked(True)
+        window.start_preview()
+        qtbot.waitUntil(lambda: window.confirmation is not None, timeout=10000)
+        assert window.confirmation.keep.isVisible()
+        window.confirmation.keep.click()
+        qtbot.waitUntil(
+            lambda: window.ready and not window.model.busy and window.model.observed.outputs[0].hdr,
+            timeout=10000,
+        )
+        assert managed.read()[0].outputs[0].hdr
+        assert window.hdr.currentData() is True
     finally:
         window._closing = True
         window.close()

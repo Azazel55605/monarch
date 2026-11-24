@@ -20,19 +20,21 @@ def render(layout: Layout, *, legacy: bool = False) -> bytes:
     Layout.parse(layout.to_dict())
     value = layout.to_dict()
     if legacy:
-        if any(o.vrr for o in layout.outputs):
-            raise MonarchError("Legacy monitor data cannot represent VRR On.")
+        if any(o.vrr or o.hdr for o in layout.outputs):
+            raise MonarchError("Legacy monitor data cannot represent VRR or HDR On.")
         value["schema_version"] = 1
         for output in value["outputs"]:
             output.pop("vrr")
     data = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     fallback = 'hl.monitor({output="",mode="preferred",scale=1,position="auto"})\n'
+    # Hyprland prefers the last matching rule. A physical match wins over a port rule.
+    outputs = sorted(ordered(layout), key=lambda output: output.hdr)
     return (
         HEADER
         + data
         + "\n"
         + fallback
-        + "\n".join(rule(o, legacy=legacy) for o in ordered(layout))
+        + "\n".join(rule(o, legacy=legacy, by_identity=o.hdr) for o in outputs)
         + "\n"
     ).encode()
 

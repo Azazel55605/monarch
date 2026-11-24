@@ -82,6 +82,7 @@ class BackendThread(QThread):
         self.profile_store = ProfileStore(config_home(env))
         self.latest_inspection: Inspection | None = None
         self.known_vrr: dict[str, int] = {}
+        self.known_hdr: set[tuple[str, str, str, str]] = set()
         self.inspector: Inspector | None = None
         self.coordinator: Coordinator | None = None
 
@@ -241,9 +242,10 @@ class BackendThread(QThread):
                 except (MonarchError, OSError):
                     pass
         self.known_vrr = {}
+        self.known_hdr = set()
         ready = False
         reason = "Set up monitor management to enable guarded changes."
-        compatibility = blockers(inspection)
+        compatibility = blockers(inspection, include_advanced=self.directory is None)
         if compatibility:
             reason = compatibility[0][1]
         elif self.directory is not None:
@@ -257,6 +259,9 @@ class BackendThread(QThread):
                     inspection.monitors,
                     allow_topology_rebase=True,
                 )
+                hdr_bindings = baseline.hdr_bindings(inspection.monitors)
+                hdr_scope = {(name, o.make, o.model, o.serial) for name, o in hdr_bindings.items()}
+                require_basic(inspection.monitors, hdr=hdr_scope)
                 saved = {o.name: o for o in baseline.outputs}
                 verified_policies: dict[str, int] = {}
                 for monitor in inspection.monitors:
@@ -267,6 +272,7 @@ class BackendThread(QThread):
                         monitor.serial,
                     ):
                         output = None
+                    output = hdr_bindings.get(monitor.name, output)
                     policy = output.vrr if output else 0
                     if output is not None:
                         verified_policies[monitor.name] = policy
@@ -279,6 +285,7 @@ class BackendThread(QThread):
                             "cannot identify external or conditional VRR policy."
                         )
                 self.known_vrr = verified_policies
+                self.known_hdr = hdr_scope
                 if not inspection.config.verified or inspection.config.path != store.root:
                     raise MonarchError(
                         "The active configuration path cannot be verified for this integration."
@@ -404,6 +411,7 @@ class BackendThread(QThread):
             assert self.inspector is not None
             inspection = await self.inspector.inspect()
             if operation == "capture":
+                require_basic(inspection.monitors, hdr=self.known_hdr)
                 store.save(
                     str(payload["name"]),
                     Layout.capture(inspection.monitors, vrr_policies=self.known_vrr),

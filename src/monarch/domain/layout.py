@@ -2,7 +2,7 @@
 
 import math
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 from typing import Any
 
@@ -25,6 +25,25 @@ class Output:
     enabled: bool = True
     mirror: str = ""
     vrr: int = 0
+    hdr: bool = False
+
+    @property
+    def hdr_selector(self) -> str:
+        if (
+            self.make.strip()
+            and self.model.strip()
+            and self.serial.strip().casefold()
+            not in {
+                "",
+                "0",
+                "unknown",
+                "none",
+                "n/a",
+                "unspecified",
+            }
+        ):
+            return "desc:" + display_description(self.make, self.model, self.serial)
+        return ""
 
     @classmethod
     def parse(cls, row: object, *, allow_preferred: bool = False) -> "Output":
@@ -43,6 +62,8 @@ class Output:
             raise MonarchError("Invalid output transform or enabled state.")
         if type(row["vrr"]) is not int or row["vrr"] not in (0, 1):
             raise MonarchError("VRR policy must be Off (0) or On (1).")
+        if type(row["hdr"]) is not bool:
+            raise MonarchError("HDR policy must be On or Off.")
         scale = row["scale"]
         if type(scale) not in (int, float) or not 0.25 <= scale <= 8:
             raise MonarchError("Scale must be finite and between 0.25 and 8.")
@@ -77,13 +98,38 @@ class Layout:
     outputs: tuple[Output, ...]
 
     def to_dict(self) -> dict[str, Any]:
-        return {"schema_version": 2, "outputs": [asdict(output) for output in self.outputs]}
+        rows = [asdict(output) for output in self.outputs]
+        if any(o.hdr is not False for o in self.outputs):
+            return {"schema_version": 3, "outputs": rows}
+        for row in rows:
+            row.pop("hdr")
+        return {"schema_version": 2, "outputs": rows}
+
+    @property
+    def hdr_identities(self) -> set[tuple[str, str, str, str]]:
+        return {(o.name, o.make, o.model, o.serial) for o in self.outputs if o.hdr}
+
+    def hdr_bindings(self, monitors: tuple[Monitor, ...]) -> dict[str, Output]:
+        """Find the physical displays that can inherit these saved HDR rules."""
+        return {
+            m.name: o
+            for o in self.outputs
+            if o.hdr
+            for m in monitors
+            if (o.make, o.model, o.serial) == (m.make, m.model, m.serial)
+            and unique_hdr_target(replace(o, name=m.name), monitors)
+        }
+
+    def owned_hdr_identities(self, monitors: tuple[Monitor, ...]) -> set[tuple[str, str, str, str]]:
+        return {
+            (name, o.make, o.model, o.serial) for name, o in self.hdr_bindings(monitors).items()
+        }
 
     @classmethod
     def parse(cls, data: object) -> "Layout":
         if not isinstance(data, dict) or set(data) != {"schema_version", "outputs"}:
             raise MonarchError("Layout must contain schema_version and outputs only.")
-        if type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2):
+        if type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2, 3):
             raise MonarchError("Unsupported layout schema version.")
         if not isinstance(data["outputs"], list) or not 1 <= len(data["outputs"]) <= 32:
             raise MonarchError("Layout must contain between 1 and 32 outputs.")
@@ -93,6 +139,10 @@ class Layout:
                 if not isinstance(row, dict) or "vrr" in row:
                     raise MonarchError("Legacy layouts cannot contain VRR policy.")
                 row = dict(row, vrr=0)
+            if data["schema_version"] < 3:
+                if not isinstance(row, dict) or "hdr" in row:
+                    raise MonarchError("Older layouts cannot contain HDR policy.")
+                row = dict(row, hdr=False)
             outputs.append(Output.parse(row))
         layout = cls(tuple(outputs))
         layout.validate_structure()
@@ -106,6 +156,22 @@ class Layout:
         if not any(not o.mirror for o in enabled.values()):
             raise MonarchError("A layout must leave at least one usable unmirrored output.")
         for output in self.outputs:
+            if output.hdr:
+                if (
+                    not output.enabled
+                    or output.mirror
+                    or any(o.enabled and o.mirror == output.name for o in self.outputs)
+                ):
+                    raise MonarchError("HDR requires an enabled, independent display.")
+                if not output.hdr_selector:
+                    raise MonarchError("HDR requires a display with a usable serial number.")
+                prefix = output.hdr_selector.removeprefix("desc:")
+                if any(
+                    o is not output
+                    and display_description(o.make, o.model, o.serial).startswith(prefix)
+                    for o in self.outputs
+                ):
+                    raise MonarchError("HDR requires an unambiguous display description.")
             if output.mirror:
                 target = enabled.get(output.mirror)
                 if not output.enabled or target is None or target is output or target.mirror:
@@ -134,6 +200,14 @@ class Layout:
             if output.enabled:
                 if output.vrr and monitor.advanced.vrr_capable is not True:
                     raise MonarchError("VRR On requires a display reporting VRR capability.")
+                if output.hdr:
+                    if (
+                        monitor.advanced.hdr_metadata is not True
+                        or monitor.advanced.bt2020 is not True
+                    ):
+                        raise MonarchError("HDR requires a display advertising HDR and BT.2020.")
+                    if not unique_hdr_target(output, monitors):
+                        raise MonarchError("HDR requires an unambiguous display description.")
                 desired = Mode.parse(output.mode + "Hz")
                 if not any(
                     mode.width == desired.width
@@ -143,7 +217,7 @@ class Layout:
                 ):
                     raise MonarchError("Requested mode is not advertised by the connected output.")
 
-    def matches(self, monitors: tuple[Monitor, ...]) -> bool:
+    def matches(self, monitors: tuple[Monitor, ...], *, check_color: bool = True) -> bool:
         live = {monitor.name: monitor for monitor in monitors}
         if set(live) != {o.name for o in self.outputs}:
             return False
@@ -157,6 +231,14 @@ class Layout:
                 return False
             if not output.enabled:
                 continue
+            if check_color and (
+                (output.hdr and not m.advanced.hdr_active)
+                or (
+                    not output.hdr
+                    and (m.advanced.color_preset != "srgb" or m.advanced.bit_depth != 8)
+                )
+            ):
+                return False
             mode = Mode.parse(output.mode + "Hz")
             if (
                 m.width != mode.width
@@ -183,6 +265,22 @@ class Layout:
             raise MonarchError("VRR policy refers to an unknown output.")
         outputs = tuple(capture_output(m, policy=vrr_policies.get(m.name, 0)) for m in monitors)
         return cls.parse(cls(outputs).to_dict())
+
+
+def display_description(make: str, model: str, serial: str) -> str:
+    return f"{make} {model} {serial}".strip().replace(",", "")
+
+
+def unique_hdr_target(output: Output, monitors: tuple[Monitor, ...]) -> bool:
+    if not output.hdr_selector:
+        return False
+    prefix = output.hdr_selector.removeprefix("desc:")
+    return [
+        m.name
+        for m in monitors
+        if m.description.replace(",", "").startswith(prefix)
+        or display_description(m.make, m.model, m.serial).startswith(prefix)
+    ] == [output.name]
 
 
 def capture_output(m: Monitor, *, policy: int = 0) -> Output:
@@ -221,6 +319,7 @@ def capture_output(m: Monitor, *, policy: int = 0) -> Output:
         not m.disabled,
         m.mirror_of or "",
         policy,
+        m.disabled is False and m.advanced.hdr_active,
     )
     return Output.parse(asdict(output), allow_preferred=not output.enabled)
 
@@ -237,10 +336,18 @@ def lua_string(value: str) -> str:
     )
 
 
-def rule(output: Output, *, legacy: bool = False, hdr: bool | None = None) -> str:
+def rule(
+    output: Output, *, legacy: bool = False, hdr: bool | None = None, by_identity: bool = False
+) -> str:
     Output.parse(asdict(output), allow_preferred=True)
     if legacy and output.vrr:
         raise MonarchError("Legacy monitor rules cannot represent VRR On.")
+    if legacy and output.hdr:
+        raise MonarchError("Legacy monitor rules cannot represent HDR On.")
+    if by_identity and not output.hdr_selector:
+        raise MonarchError("HDR requires a display with a usable serial number.")
+    if output.hdr and hdr is None:
+        hdr = True
     color = []
     if hdr is not None:
         color = ['cm="hdr"', "bitdepth=10"] if hdr else ['cm="srgb"', "bitdepth=8"]
@@ -248,7 +355,7 @@ def rule(output: Output, *, legacy: bool = False, hdr: bool | None = None) -> st
         "hl.monitor({"
         + ",".join(
             [
-                "output=" + lua_string(output.name),
+                "output=" + lua_string(output.hdr_selector if by_identity else output.name),
                 "mode=" + lua_string(output.mode),
                 "scale=" + repr(float(output.scale)),
                 "transform=" + str(output.transform),

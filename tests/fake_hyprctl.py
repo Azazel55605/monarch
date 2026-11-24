@@ -44,11 +44,22 @@ with path.open("r+") as stream:
             fields = dict(re.findall(r'(\w+)=("[^"\\]*"|true|false|-?[\d.]+)', text))
             values = {k: json.loads(v) for k, v in fields.items()}
             x, y = values["position"].split("x")
-            name = values["output"]
-            live = next(m for m in data["monitors"] if m["name"] == name)
+            selector = values["output"]
+            live = next(
+                m
+                for m in data["monitors"]
+                if m["name"] == selector
+                or (
+                    selector.startswith("desc:")
+                    and " ".join(m[k] for k in ("make", "model", "serial"))
+                    .strip()
+                    .replace(",", "")
+                    .startswith(selector[5:])
+                )
+            )
             updates = [
                 Output(
-                    name,
+                    live["name"],
                     live["make"],
                     live["model"],
                     live["serial"],
@@ -120,6 +131,11 @@ with path.open("r+") as stream:
                             m["currentFormat"] = (
                                 "XRGB2101010" if values["bitdepth"] == 10 else "XRGB8888"
                             )
+                            if preset == "hdr" and data.get("hdr_at_8bit"):
+                                m["currentFormat"] = "XRGB8888"
+                    elif command == "reload":
+                        m["colorManagementPreset"] = "hdr" if output.hdr else "srgb"
+                        m["currentFormat"] = "XRGB2101010" if output.hdr else "XRGB8888"
     stream.seek(0)
     json.dump(data, stream)
     stream.truncate()

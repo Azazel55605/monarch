@@ -27,7 +27,12 @@ class AdvancedDialog(QDialog):
     hdr_requested = Signal()
 
     def __init__(
-        self, state: AdvancedState, parent: QWidget | None = None, *, hdr_ready: bool = False
+        self,
+        state: AdvancedState,
+        parent: QWidget | None = None,
+        *,
+        hdr_ready: bool = False,
+        hdr_editor: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Advanced display settings")
@@ -35,8 +40,8 @@ class AdvancedDialog(QDialog):
         self.setModal(True)
         layout = QVBoxLayout(self)
         note = QLabel(
-            "VRR is available in the display editor. The HDR preview returns to SDR "
-            "when the timer expires or you choose Revert."
+            "HDR and VRR policies are available in the display editor. "
+            "The timed HDR test returns to SDR when the timer expires or you choose Revert."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -52,10 +57,12 @@ class AdvancedDialog(QDialog):
                     "Timed preview"
                     if feature.key == "hdr" and hdr_ready
                     else "Editor: Off/On"
-                    if feature.writable
+                    if feature.writable or (feature.key == "hdr" and hdr_editor)
                     else "Unavailable",
                     "Verify HDR using the monitor’s on-screen display."
                     if feature.key == "hdr" and hdr_ready
+                    else "Set HDR in the editor and preview the layout before keeping it."
+                    if feature.key == "hdr" and hdr_editor
                     else feature.reason,
                 )
             ):

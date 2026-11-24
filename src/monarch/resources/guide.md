@@ -10,13 +10,19 @@ Opening the editor never applies settings. Appearance follows the system Qt them
 use the Appearance menu to choose another available style.
 
 Read the status banner first. Monitor writes require the clean Hyprland 0.57.2 Lua
-release, a verified owned/registered config, and known basic state on active outputs:
-8-bit sRGB/default SDR and known VRR state. Set VRR to Off or On in the display
+release, a verified owned/registered config, and known state on active outputs:
+8-bit sRGB or owned 10-bit HDR with known VRR state. Set VRR to Off or On in the display
 editor; On requires reported VRR capability. Preview, Keep/Revert, profiles and Save
-on login carry this per-display policy explicitly. Advanced settings shows color
-and bit depth. Use **Preview HDR** on an eligible display with a second
-independent display active. Check the target monitor’s on-screen HDR indicator.
-The guard restores SDR on Revert, timeout or client exit.
+on login carry these per-display policies explicitly. Set **HDR** to On on an
+independent display with advertised HDR and BT.2020 and a unique serial. Use
+**Preview changes** and select Keep when the display's own HDR indicator confirms
+the switch. **Save on login** writes an HDR rule matched to the physical display's
+description and serial. Profiles store HDR alongside VRR and geometry. Older
+layouts open with HDR Off. HDR Off selects the SDR desktop preset. Hyprland's
+fullscreen auto-HDR setting is independent.
+
+Advanced settings also offers **Preview HDR** from an all-SDR layout with a
+second independent display active. The timed test always returns to SDR.
 
 Older basic-only layouts migrate as VRR Off. Existing externally active or
 conditional VRR cannot be inferred from the active flag: establish the reviewed Off

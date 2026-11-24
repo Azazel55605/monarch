@@ -164,7 +164,10 @@ class Automation:
             and baseline is not None
             and self.selection.layout is None
             and self.selection.reason.startswith("No eligible profile")
-            and not basic_issues(inspection.monitors)
+            and not basic_issues(
+                inspection.monitors,
+                hdr=baseline.owned_hdr_identities(inspection.monitors),
+            )
         ):
             known = {identity(o) for o in baseline.outputs}
             added = tuple(

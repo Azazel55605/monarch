@@ -138,6 +138,13 @@ def match(
     # Unknown extras retain their CURRENT settings, including enabled state.
     extras = tuple(m for m in monitors if m.name not in {o.name for o in wanted.outputs})
     policies = {identity(o): o.vrr for o in baseline.outputs} if baseline else {}
+    if baseline:
+        policies.update(
+            {
+                (name, o.make, o.model, o.serial): o.vrr
+                for name, o in baseline.hdr_bindings(monitors).items()
+            }
+        )
     current = Layout(tuple(capture_output(m, policy=policies.get(identity(m), 0)) for m in extras))
     names = {o.name for o in wanted.outputs}
     layout = Layout(wanted.outputs + tuple(o for o in current.outputs if o.name not in names))
@@ -154,7 +161,9 @@ def choose(
 ) -> Selection:
     if not policy.enabled:
         return Selection("Automatic switching is disabled.")
-    advanced = basic_issues(monitors)
+    advanced = basic_issues(
+        monitors, hdr=baseline.owned_hdr_identities(monitors) if baseline else ()
+    )
     if advanced:
         return Selection(
             "Advanced state is outside the verified basic guard; preserving layout.",

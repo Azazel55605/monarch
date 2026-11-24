@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 from monarch.backends.hyprland.inspector import Inspection
 from monarch.backends.hyprland.support import blockers
 from monarch.domain.advanced import AdvancedState, hdr_available
-from monarch.domain.layout import Layout
+from monarch.domain.layout import Layout, unique_hdr_target
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import Profile
@@ -240,6 +240,12 @@ class MainWindow(QMainWindow):
         self.vrr.addItem("Off", 0)
         self.vrr.addItem("On", 1)
         form.addRow("VRR", self.vrr)
+        self.hdr = QComboBox()
+        self.hdr.setAccessibleName("High dynamic range policy")
+        self.hdr.setObjectName("hdrPolicy")
+        self.hdr.addItem("Off", False)
+        self.hdr.addItem("On (10-bit HDR)", True)
+        form.addRow("HDR", self.hdr)
         self.position_x = QSpinBox()
         self.position_y = QSpinBox()
         for name, spin in [
@@ -269,6 +275,7 @@ class MainWindow(QMainWindow):
             self.scale,
             self.rotation,
             self.vrr,
+            self.hdr,
             self.mirror,
         ):
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -315,6 +322,7 @@ class MainWindow(QMainWindow):
         self.displays.currentRowChanged.connect(self.row_selected)
         self.resolution.currentIndexChanged.connect(self.resolution_changed)
         self.vrr.currentIndexChanged.connect(self.fields_changed)
+        self.hdr.currentIndexChanged.connect(self.fields_changed)
         self.refresh_rate.currentIndexChanged.connect(self.fields_changed)
         self.enabled.toggled.connect(self.fields_changed)
         self.scale.currentIndexChanged.connect(self.fields_changed)
@@ -407,6 +415,7 @@ class MainWindow(QMainWindow):
         self.loading = True
         output = self.model.output(self.model.selected)
         self.vrr.setEnabled(False)
+        self.hdr.setEnabled(False)
         self.properties.setEnabled(
             output is not None and not self.model.busy and not self._profile_loading
         )
@@ -427,6 +436,20 @@ class MainWindow(QMainWindow):
                 self.vrr.setEnabled(True)
                 vrr_hint = "Preview or save this display’s VRR On/Off policy."
             self.vrr.setToolTip(vrr_hint)
+            self.hdr.setCurrentIndex(int(output.hdr))
+            hdr_supported = (
+                monitor is not None
+                and identity(monitor) == identity(output)
+                and monitor.advanced.hdr_metadata is True
+                and monitor.advanced.bt2020 is True
+                and unique_hdr_target(output, self.model.inspection.monitors)
+            )
+            self.hdr.setEnabled(output.enabled and (hdr_supported or output.hdr))
+            self.hdr.setToolTip(
+                "Preview and keep HDR for this display, or select Off to restore SDR."
+                if hdr_supported
+                else "HDR On needs advertised HDR and BT.2020 and a unique display serial."
+            )
             self.resolution.clear()
             resolutions = []
             if monitor:
@@ -537,6 +560,8 @@ class MainWindow(QMainWindow):
             y=self.position_y.value(),
             mirror=self.mirror.currentData() or "",
             vrr=self.vrr.currentData() if self.vrr.isEnabled() else current.vrr,
+            hdr=self.enabled.isChecked()
+            and (bool(self.hdr.currentData()) if self.hdr.isEnabled() else current.hdr),
         )
         self.render_state()
 
@@ -546,7 +571,9 @@ class MainWindow(QMainWindow):
             error = next(
                 (
                     message
-                    for code, message in blockers(self.model.inspection)
+                    for code, message in blockers(
+                        self.model.inspection, include_advanced=not self.ready
+                    )
                     if code != "unverified_config"
                 ),
                 "",
@@ -621,6 +648,7 @@ class MainWindow(QMainWindow):
             and not self.model.dirty
             and not self.model.busy
             and layout
+            and not layout.hdr_identities
             and monitor
             and hdr_available(monitor)
             and monitor.connector_enabled is not False
@@ -635,7 +663,10 @@ class MainWindow(QMainWindow):
             )
         )
         self.advanced_dialog = AdvancedDialog(
-            monitor.advanced if monitor else AdvancedState(), self, hdr_ready=hdr_ready
+            monitor.advanced if monitor else AdvancedState(),
+            self,
+            hdr_ready=hdr_ready,
+            hdr_editor=self.hdr.isEnabled(),
         )
         if hdr_ready and layout is not None:
             self.advanced_dialog.hdr_requested.connect(

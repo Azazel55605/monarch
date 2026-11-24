@@ -21,8 +21,8 @@ class Writer(Hyprctl):
     async def set_output(self, output: Output) -> None:
         await self._set_rule(rule(output))
 
-    async def set_hdr(self, output: Output, enabled: bool) -> None:
-        await self._set_rule(rule(output, hdr=enabled))
+    async def set_hdr(self, output: Output, enabled: bool, *, by_identity: bool = False) -> None:
+        await self._set_rule(rule(output, hdr=enabled, by_identity=by_identity))
 
     async def _set_rule(self, command: str) -> None:
         response = await self._request(("eval", command))

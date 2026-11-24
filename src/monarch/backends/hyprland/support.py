@@ -4,7 +4,9 @@ from monarch.backends.hyprland.inspector import Inspection
 from monarch.domain.advanced import basic_issues
 
 
-def blockers(inspection: Inspection) -> tuple[tuple[str, str], ...]:
+def blockers(
+    inspection: Inspection, *, include_advanced: bool = True
+) -> tuple[tuple[str, str], ...]:
     issues = []
     if not inspection.capabilities.stable_baseline:
         issues.append(
@@ -33,6 +35,9 @@ def blockers(inspection: Inspection) -> tuple[tuple[str, str], ...]:
         )
     if not inspection.monitors:
         issues.append(("no_outputs", "No connected outputs are available."))
-    for reason in basic_issues(inspection.monitors):
-        issues.append(("advanced_state", reason + " Resolve this state before guarded changes."))
+    if include_advanced:
+        for reason in basic_issues(inspection.monitors):
+            issues.append(
+                ("advanced_state", reason + " Resolve this state before guarded changes.")
+            )
     return tuple(issues)

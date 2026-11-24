@@ -67,12 +67,15 @@ def test_hardware_support_flag_does_not_block_basic_or_enable_control(monitors):
 def test_existing_schema_remains_strict_against_unsupported_advanced_imports(monitors):
     monitors[0]["scale"] = 1
     layout = Layout.capture(parse_monitors(monitors)).to_dict()
-    for field in ("bitdepth", "icc", "cm", "hdr"):
+    for field in ("bitdepth", "icc", "cm"):
         candidate = json.loads(json.dumps(layout))
         candidate["outputs"][0][field] = "unverified"
         with pytest.raises(MonarchError, match="documented layout fields"):
             Layout.parse(candidate)
-    layout["schema_version"] = 3
+    layout["outputs"][0]["hdr"] = True
+    with pytest.raises(MonarchError, match="Older layouts cannot contain HDR"):
+        Layout.parse(layout)
+    layout["schema_version"] = 4
     with pytest.raises(MonarchError, match="schema version"):
         Layout.parse(layout)
 

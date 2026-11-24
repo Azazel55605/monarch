@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Collection
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +43,10 @@ class AdvancedState:
     @property
     def bit_depth(self) -> int | None:
         return FORMATS.get(self.current_format or "")
+
+    @property
+    def hdr_active(self) -> bool:
+        return self.color_preset == "hdr" and self.bit_depth == 10
 
     def to_dict(self) -> dict[str, Any]:
         return dict(asdict(self), observed_bit_depth=self.bit_depth, icc_state="not_reported")
@@ -133,8 +138,13 @@ def features(state: AdvancedState) -> tuple[Feature, ...]:
     )
 
 
-def basic_issues(monitors: tuple[Monitor, ...]) -> tuple[str, ...]:
-    """SDR gate; known VRR On/Off is verified separately against each layout."""
+def basic_issues(
+    monitors: tuple[Monitor, ...],
+    *,
+    hdr: Collection[tuple[str, str, str, str]] = (),
+    recovering: bool = False,
+) -> tuple[str, ...]:
+    """Accept SDR and explicitly owned 10-bit HDR; layout matching verifies the policy."""
     issues: set[str] = set()
     for monitor in monitors:
         if monitor.disabled is True:
@@ -142,10 +152,15 @@ def basic_issues(monitors: tuple[Monitor, ...]) -> tuple[str, ...]:
         state = monitor.advanced
         if state.vrr_active is None:
             issues.add("VRR state is unknown; policy application and recovery cannot be verified.")
-        if state.bit_depth != 8:
-            issues.add("The current pixel format is not verified 8-bit SDR.")
-        if state.color_preset != "srgb":
-            issues.add("The color preset is not verified sRGB.")
+        owned_hdr = (monitor.name, monitor.make, monitor.model, monitor.serial) in hdr and (
+            state.hdr_active
+            or (recovering and state.color_preset in ("hdr", "srgb") and state.bit_depth in (8, 10))
+        )
+        if not owned_hdr:
+            if state.bit_depth != 8:
+                issues.add("The current pixel format is not verified 8-bit SDR or owned HDR.")
+            if state.color_preset != "srgb":
+                issues.add("The color preset is not verified sRGB or owned HDR.")
         values = (
             (state.sdr_brightness, 1),
             (state.sdr_saturation, 1),
@@ -157,8 +172,13 @@ def basic_issues(monitors: tuple[Monitor, ...]) -> tuple[str, ...]:
     return tuple(sorted(issues))
 
 
-def require_basic(monitors: tuple[Monitor, ...]) -> None:
-    issues = basic_issues(monitors)
+def require_basic(
+    monitors: tuple[Monitor, ...],
+    *,
+    hdr: Collection[tuple[str, str, str, str]] = (),
+    recovering: bool = False,
+) -> None:
+    issues = basic_issues(monitors, hdr=hdr, recovering=recovering)
     if issues:
         raise MonarchError(
             "Advanced display state cannot be restored by the basic guard. " + " ".join(issues)
