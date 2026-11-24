@@ -221,7 +221,8 @@ session lock elects one enabled automatic owner. Pure rules select by priority,
 exactness and specificity; ties/no match preserve state. Subset rules retain extras.
 Explicit saved-port bindings are separate from default physical identity matching.
 Session runtime controls carry a manual pin/generation, durable attempt history
-and heartbeat. Manual edits and all manual coordinator clients revoke auto control.
+and heartbeat. Draft editing defers automatic offers. A manual coordinator client
+can revoke an active automatic guard without setting a session pause.
 Automatic guards pin both the policy and catalog revision and never persist.
 Only authorized topology changes can capture a new basic recovery baseline;
 same-set unexplained drift remains refused. A revoked permit cancels apply but

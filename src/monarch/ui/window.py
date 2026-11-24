@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 
 from monarch.backends.hyprland.inspector import Inspection
 from monarch.backends.hyprland.support import blockers
-from monarch.domain.advanced import AdvancedState
+from monarch.domain.advanced import AdvancedState, hdr_available
 from monarch.domain.layout import Layout
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
@@ -94,6 +94,7 @@ class MainWindow(QMainWindow):
         self.integration: IntegrationDialog | None = None
         self.identification = Identification()
         self._persist = False
+        self._hdr_preview = False
         self.notice = ""
         if theme is not None:
             appearance = self.menuBar().addMenu("Appearance")
@@ -309,9 +310,6 @@ class MainWindow(QMainWindow):
         self.apply.clicked.connect(lambda: self.start_preview())
         row.addWidget(self.apply)
         outer.addLayout(row)
-        self.canvas.editing.connect(
-            lambda: self.backend.submit("automation-edit-pin") if self.backend else None
-        )
         self.canvas.selected.connect(self.select_display)
         self.canvas.moved.connect(self.position_changed, Qt.ConnectionType.QueuedConnection)
         self.displays.currentRowChanged.connect(self.row_selected)
@@ -403,7 +401,6 @@ class MainWindow(QMainWindow):
             self.backend.submit(
                 "ui-state",
                 not self.model.busy and not self.model.dirty and not self._profile_loading,
-                self.model.dirty and not self.model.busy and not self._discard_next,
             )
 
     def load_properties(self) -> None:
@@ -613,15 +610,55 @@ class MainWindow(QMainWindow):
         self.help_dialog.show()
 
     def show_advanced(self) -> None:
-        state = AdvancedState()
-        if self.model.inspection:
-            monitor = next(
-                (m for m in self.model.inspection.monitors if m.name == self.model.selected), None
+        inspection = self.model.inspection
+        monitors = inspection.monitors if inspection else ()
+        name = self.model.selected
+        monitor = next((m for m in monitors if m.name == name), None)
+        layout = self.model.draft
+        hdr_ready = bool(
+            self.backend
+            and self.ready
+            and not self.model.dirty
+            and not self.model.busy
+            and layout
+            and monitor
+            and hdr_available(monitor)
+            and monitor.connector_enabled is not False
+            and not any(o.enabled and o.mirror == name for o in layout.outputs)
+            and any(
+                m.name != name
+                and m.disabled is False
+                and not m.mirror_of
+                and m.dpms_on is not False
+                and m.connector_enabled is not False
+                for m in monitors
             )
-            if monitor:
-                state = monitor.advanced
-        self.advanced_dialog = AdvancedDialog(state, self)
+        )
+        self.advanced_dialog = AdvancedDialog(
+            monitor.advanced if monitor else AdvancedState(), self, hdr_ready=hdr_ready
+        )
+        if hdr_ready and layout is not None:
+            self.advanced_dialog.hdr_requested.connect(
+                partial(self.start_hdr_preview, layout, name)
+            )
         self.advanced_dialog.show()
+
+    def start_hdr_preview(self, layout: Layout, target: str) -> None:
+        if (
+            not self.backend
+            or not self.ready
+            or self.model.busy
+            or self.model.dirty
+            or self.model.draft != layout
+        ):
+            return
+        if self.advanced_dialog:
+            self.advanced_dialog.accept()
+        self.model.busy = True
+        self._hdr_preview = True
+        self._persist = False
+        self.render_state()
+        self.backend.submit("preview", layout, None, target)
 
     def show_diagnostics(self) -> None:
         self.diagnostics_dialog = DiagnosticsDialog(self)
@@ -997,7 +1034,7 @@ class MainWindow(QMainWindow):
             self.backend.submit("preview", self.model.draft, topology_snapshot)
 
     def preview_pending(self, deadline: float) -> None:
-        self.confirmation = ConfirmationDialog(deadline, self._persist, self)
+        self.confirmation = ConfirmationDialog(deadline, self._persist, self, hdr=self._hdr_preview)
         if self.backend:
             self.confirmation.decision.connect(
                 lambda keep, persist: self.backend.submit("decide", keep, persist)
@@ -1005,6 +1042,8 @@ class MainWindow(QMainWindow):
         self.confirmation.show()
 
     def preview_complete(self, result: dict[str, Any]) -> None:
+        hdr = self._hdr_preview
+        self._hdr_preview = False
         if self.confirmation:
             self.confirmation.finish()
             self.confirmation = None
@@ -1013,7 +1052,7 @@ class MainWindow(QMainWindow):
             self._discard_next = True
         self._reverted_draft = (
             self.model.draft
-            if result["state"] == "reverted" and not result.get("automatic")
+            if result["state"] == "reverted" and not result.get("automatic") and not hdr
             else None
         )
         if result["state"] == "kept":
@@ -1025,7 +1064,7 @@ class MainWindow(QMainWindow):
             )
         else:
             self.ownership_reason = (
-                "Previous layout restored."
+                ("SDR restored after HDR preview." if hdr else "Previous layout restored.")
                 if result["state"] == "reverted"
                 else "Recovery needs attention: " + result["state"]
             )
@@ -1034,6 +1073,7 @@ class MainWindow(QMainWindow):
         self.render_state()
 
     def show_error(self, message: str) -> None:
+        self._hdr_preview = False
         self.notice = message
         self.model.busy = False
         if self.confirmation:

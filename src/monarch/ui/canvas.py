@@ -46,7 +46,6 @@ def display_colors(palette: QPalette, *, selected: bool, enabled: bool) -> tuple
 class DisplayItem(QGraphicsObject):
     selected = Signal(str)
     moved = Signal(str, int, int)
-    editing = Signal()
 
     def __init__(self, output: Output, number: int, layout: Layout, editable: bool) -> None:
         super().__init__()
@@ -123,8 +122,6 @@ class DisplayItem(QGraphicsObject):
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         self._dragged = False
-        if self.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
-            self.editing.emit()
         self.selected.emit(self.output.name)
         super().mousePressEvent(event)
 
@@ -182,7 +179,6 @@ class DisplayItem(QGraphicsObject):
 class LayoutCanvas(QGraphicsView):
     selected = Signal(str)
     moved = Signal(str, int, int)
-    editing = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -208,7 +204,6 @@ class LayoutCanvas(QGraphicsView):
             if not output.enabled:
                 item.setPos(left + disabled * 200, bottom + 35)
                 disabled += 1
-            item.editing.connect(self.editing.emit)
             item.selected.connect(self.selected.emit)
             item.moved.connect(self.moved.emit)
             item.setSelected(output.name == selected)

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from monarch.backends.hyprland.drm import LINK_ERROR, disabled_links
-from monarch.domain.advanced import require_basic
+from monarch.domain.advanced import basic_issues, hdr_available, require_basic
 from monarch.domain.layout import Layout, Output, ordered
 from monarch.domain.monitors import Monitor
 from monarch.domain.quick_layout import hotplug_baseline, identity
@@ -24,6 +24,7 @@ from monarch.storage.managed import ROOT, Managed, parse_content, render
 class Backend(Protocol):
     async def observe(self) -> tuple[Monitor, ...]: ...
     async def set_output(self, output: Output) -> None: ...
+    async def set_hdr(self, output: Output, enabled: bool) -> None: ...
     async def reload(self) -> None: ...
     async def check_errors(self) -> None: ...
 
@@ -67,6 +68,7 @@ class Transaction:
         *,
         allow_topology_rebase: bool = False,
         topology_snapshot: Layout | None = None,
+        hdr_target: str | None = None,
     ) -> None:
         previous = self.paths.status()
         if previous and previous.get("status") not in TERMINAL:
@@ -104,6 +106,24 @@ class Transaction:
             raise MonarchError(
                 "Runtime differs from the owned baseline; external overrides are unknown."
             )
+        if hdr_target is not None:
+            target = next((m for m in monitors if m.name == hdr_target), None)
+            if not desired.matches(monitors):
+                raise MonarchError("The monitor layout changed. Reopen Advanced settings.")
+            if target is None or not hdr_available(target) or not self.hdr_link_ok(target):
+                raise MonarchError("HDR requires an active display advertising HDR and BT.2020.")
+            if any(o.enabled and o.mirror == hdr_target for o in baseline.outputs):
+                raise MonarchError("Disable mirroring before testing HDR on this display.")
+            if not any(
+                m.name != hdr_target
+                and m.disabled is False
+                and not m.mirror_of
+                and m.dpms_on is not False
+                and self.hdr_link_ok(m)
+                for m in monitors
+            ):
+                raise MonarchError("Keep another independent display active for the HDR preview.")
+            desired = baseline
         self._prepared_monitors = monitors
         await self.backend.check_errors()
         self.record = {
@@ -120,6 +140,8 @@ class Transaction:
             "disk_digest": digest(disk_bytes),
             "candidate_digest": digest(render(desired)),
         }
+        if hdr_target is not None:
+            self.record.update(hdr_target=hdr_target, hdr_write_started=False)
         # An immutable backup and durable journal exist before the first mutation.
         atomic_write(self.paths.state / f"backup-{self.record['id']}.lua", disk_bytes, create=True)
         self.save("armed")
@@ -210,6 +232,85 @@ class Transaction:
                 )
             await asyncio.sleep(0.1)
 
+    def hdr_output(self, layout: Layout) -> Output:
+        assert self.record is not None
+        if type(self.record.get("hdr_write_started")) is not bool:
+            raise MonarchError("Invalid HDR recovery journal.")
+        output = next((o for o in layout.outputs if o.name == self.record["hdr_target"]), None)
+        if output is None or not output.enabled or output.mirror:
+            raise MonarchError("Invalid HDR recovery target.")
+        return output
+
+    def hdr_link_ok(self, monitor: Monitor) -> bool:
+        return (
+            monitor.connector_enabled is True
+            if getattr(self.backend, "native_drm", False)
+            else monitor.connector_enabled is not False
+        )
+
+    def hdr_matches(
+        self, live: tuple[Monitor, ...], output: Output, enabled: bool, layout: Layout | None
+    ) -> bool:
+        target = next((m for m in live if identity(m) == identity(output)), None)
+        if (
+            target is None
+            or target.dpms_on is False
+            or not self.hdr_link_ok(target)
+            or not Layout((output,)).matches((target,))
+        ):
+            return False
+        if enabled:
+            if (
+                not hdr_available(target)
+                or target.advanced.color_preset != "hdr"
+                or target.advanced.bit_depth != 10
+            ):
+                return False
+            require_basic(tuple(m for m in live if m.name != target.name))
+        elif basic_issues((target,)):
+            return False
+        return layout is None or (layout.matches(live) and not disabled_links(live))
+
+    async def settle_hdr(
+        self, output: Output, enabled: bool, layout: Layout | None = None
+    ) -> tuple[Monitor, ...]:
+        deadline = time.monotonic() + 3
+        while True:
+            self.check_session()
+            live = await self.backend.observe()
+            if layout is not None:
+                layout.validate(live)
+            if self.hdr_matches(live, output, enabled, layout):
+                await self.backend.check_errors()
+                return live
+            if time.monotonic() >= deadline:
+                state = "10-bit HDR" if enabled else "8-bit SDR"
+                raise MonarchError(f"Could not verify {state} and an active display link.")
+            await asyncio.sleep(0.1)
+
+    async def restore_hdr(self, live: tuple[Monitor, ...], reason: str) -> None:
+        assert self.record is not None
+        baseline = Layout.parse(self.record["baseline"])
+        output = self.hdr_output(baseline)
+        if self.record["hdr_write_started"] and any(identity(m) == identity(output) for m in live):
+            self.check_session()
+            self.managed.check(self.record["disk_digest"])
+            await self.backend.set_hdr(output, False)
+            live = await self.settle_hdr(output, False)
+        require_basic(live)
+        if not baseline.matches(live) or disabled_links(live):
+            if not any(
+                m.disabled is False
+                and not m.mirror_of
+                and m.dpms_on is not False
+                and self.hdr_link_ok(m)
+                for m in live
+            ):
+                raise MonarchError("No active SDR output could be verified after HDR recovery.")
+            self.save("degraded", "layout_changed_during_hdr")
+            return
+        self.save("reverted", reason)
+
     async def apply(self) -> None:
         if self.authorize is not None:
             self.authorize()
@@ -222,6 +323,15 @@ class Transaction:
         require_basic(live)
         if not baseline.matches(live) and live != self._prepared_monitors:
             raise MonarchError("The captured layout changed before the preview started.")
+        if "hdr_target" in self.record:
+            output = self.hdr_output(baseline)
+            self.record["hdr_write_started"] = True
+            self.save("applying")
+            await self.backend.set_hdr(output, True)
+            await self.settle_hdr(output, True, baseline)
+            self.save("pending")
+            self.pending = True
+            return
         # Reloading a saved rule for a reused connector can modeset the new
         # display with the old display's timing before the preview even starts.
         if not self.saved_connector_reused(live):
@@ -249,6 +359,11 @@ class Transaction:
         self.managed.check(self.record["disk_digest"])
         desired = Layout.parse(self.record["desired"])
         live = await self.backend.observe()
+        if "hdr_target" in self.record:
+            if not self.hdr_matches(live, self.hdr_output(desired), True, desired):
+                raise MonarchError("The HDR preview no longer matches the requested display state.")
+            await self.backend.check_errors()
+            return
         require_basic(live)
         if not desired.matches(live):
             raise MonarchError("Monitor topology or layout changed during preview.")
@@ -258,6 +373,8 @@ class Transaction:
 
     async def keep(self, persist: bool) -> None:
         assert self.record is not None
+        if "hdr_target" in self.record:
+            raise MonarchError("The HDR preview must return to SDR.")
         await self.check_pending()
         self.pending = False
         desired = Layout.parse(self.record["desired"])
@@ -300,6 +417,10 @@ class Transaction:
         try:
             self.check_session()
             self.managed.verify_root()
+            if "hdr_target" in self.record:
+                self.managed.check(self.record["disk_digest"])
+                await self.restore_hdr(await self.backend.observe(), reason)
+                return
             current = read_private(self.managed.monitors)
             if digest(current) not in (self.record["disk_digest"], self.record["candidate_digest"]):
                 raise MonarchError("External monitor file edit is preserved.")
@@ -382,8 +503,8 @@ class Transaction:
             if key not in record:
                 raise MonarchError("Incomplete recovery journal; manual recovery required.")
         # Validate journal-contained data before allowing any mutation.
-        Layout.parse(record["baseline"])
-        Layout.parse(record["desired"])
+        baseline = Layout.parse(record["baseline"])
+        desired = Layout.parse(record["desired"])
         parse_content(record["disk_content"].encode())
         if digest(record["disk_content"].encode()) != record["disk_digest"]:
             raise MonarchError("Recovery backup digest mismatch.")
@@ -397,5 +518,9 @@ class Transaction:
         ):
             raise MonarchError("Recovery candidate digest mismatch.")
         self.record = record
+        if "hdr_target" in record:
+            self.hdr_output(baseline)
+            if desired != baseline or record.get("automation") is not None:
+                raise MonarchError("Invalid HDR recovery journal.")
         self.check_session()
         await self.rollback("manual_recovery")

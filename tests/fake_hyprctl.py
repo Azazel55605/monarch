@@ -113,6 +113,13 @@ with path.open("r+") as stream:
                         if data.get("ignore_vrr") or data.get("vrr_rule_cache")
                         else bool(output.vrr),
                     )
+                    if command == "eval" and "cm" in values:
+                        preset = values["cm"]
+                        if preset != "hdr" or not data.get("ignore_hdr"):
+                            m["colorManagementPreset"] = preset
+                            m["currentFormat"] = (
+                                "XRGB2101010" if values["bitdepth"] == 10 else "XRGB8888"
+                            )
     stream.seek(0)
     json.dump(data, stream)
     stream.truncate()

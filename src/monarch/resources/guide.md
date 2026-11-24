@@ -13,8 +13,10 @@ Read the status banner first. Monitor writes require the clean Hyprland 0.57.2 L
 release, a verified owned/registered config, and known basic state on active outputs:
 8-bit sRGB/default SDR and known VRR state. Set VRR to Off or On in the display
 editor; On requires reported VRR capability. Preview, Keep/Revert, profiles and Save
-on login carry this per-display policy explicitly. Advanced settings shows color/depth observations; those controls remain
-read-only; 10-bit/HDR or unknown observations can still block application.
+on login carry this per-display policy explicitly. Advanced settings shows color
+and bit depth. Use **Preview HDR** on an eligible display with a second
+independent display active. Check the target monitor’s on-screen HDR indicator.
+The guard restores SDR on Revert, timeout or client exit.
 
 Older basic-only layouts migrate as VRR Off. Existing externally active or
 conditional VRR cannot be inferred from the active flag: establish the reviewed Off
@@ -48,9 +50,9 @@ Missing displays and ambiguous identities need explicit resolution.
 
 Automation is disabled by default. Automation… selects eligible profiles and
 priority/exact/subset matching. Every automatic preview still needs Keep; automatic
-changes apply to the live session. Manual edits pause switching until the connected
-displays change. An explicit tray pause lasts until Resume automatic switching.
-After upgrading, use Resume once if there is a pause from an older build. Saved ports is an explicit
+changes apply to the live session. Automatic previews wait while a draft is
+unsaved or a manual preview is running. An explicit tray pause lasts until
+Resume automatic switching. Saved ports is an explicit
 fixed-cabling option for otherwise ambiguous displays.
 
 For new external displays without a matching profile, Monarch can preview the

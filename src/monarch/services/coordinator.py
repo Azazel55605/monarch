@@ -11,7 +11,6 @@ from typing import Any
 
 from monarch.backends.hyprland.session import Session
 from monarch.domain.layout import Layout
-from monarch.domain.quick_layout import connection_key
 from monarch.errors import MonarchError
 from monarch.services.state import TERMINAL, Paths
 from monarch.storage.files import write_json
@@ -127,16 +126,21 @@ class Coordinator:
         seconds: float = 15,
         automation: dict[str, str] | None = None,
         topology_snapshot: Layout | None = None,
+        hdr_target: str | None = None,
     ) -> Preview:
         Layout.parse(layout.to_dict())
         if not 1 <= seconds <= 60:
             raise MonarchError("Preview duration must be between 1 and 60 seconds.")
+        if hdr_target is not None and (automation is not None or topology_snapshot is not None):
+            raise MonarchError("HDR requires a standalone manual preview.")
         if automation is None:
-            from monarch.storage.automation import pin
+            from monarch.storage.automation import interrupt_offer
 
-            pin(self.paths, connections=connection_key(layout.outputs))
             # Revocation is visible to the active automatic guard. Wait only for
             # automatic recovery, never steal a manual transaction's lock.
+            active = self.paths.status()
+            if active and active.get("automation") and active.get("status") not in TERMINAL:
+                interrupt_offer(self.paths)
             for _ in range(100):
                 active = self.paths.status()
                 if not active or not active.get("automation") or active.get("status") in TERMINAL:
@@ -150,6 +154,7 @@ class Coordinator:
                 "seconds": seconds,
                 "automation": automation,
                 "topology_snapshot": topology_snapshot.to_dict() if topology_snapshot else None,
+                "hdr_target": hdr_target,
             }
         )
         try:

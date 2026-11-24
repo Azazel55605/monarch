@@ -19,14 +19,13 @@ from monarch.domain.advanced import require_basic
 from monarch.domain.layout import Layout
 from monarch.domain.policy import Policy
 from monarch.domain.profiles import MappingRequired, resolve
-from monarch.domain.quick_layout import connection_key
 from monarch.errors import MonarchError
 from monarch.services.automation import Automation
 from monarch.services.baseline import known_baseline
 from monarch.services.coordinator import Coordinator, Preview
 from monarch.services.diagnostics import collect, save
 from monarch.services.state import TERMINAL, session_token
-from monarch.storage.automation import Autostart, PolicyStore, control, pin
+from monarch.storage.automation import Autostart, PolicyStore, pin
 from monarch.storage.integration import IntegrationPlan
 from monarch.storage.managed import Managed
 from monarch.storage.profiles import ProfileStore, config_home
@@ -162,23 +161,11 @@ class BackendThread(QThread):
                         self.diagnostics_failed.emit(str(exc))
                 elif operation == "ui-state":
                     self.ui_idle = bool(args[0])
-                    if (
-                        len(args) > 1
-                        and args[1]
-                        and not self.automatic_preview
-                        and self.coordinator
-                    ):
-                        if self.latest_inspection and not control(self.coordinator.paths)["pinned"]:
-                            pin(
-                                self.coordinator.paths,
-                                connections=connection_key(self.latest_inspection.monitors),
-                            )
                 elif operation in {
                     "automation-settings",
                     "automation-save",
                     "automation-resume",
                     "automation-pin",
-                    "automation-edit-pin",
                 }:
                     try:
                         self._automation_action(operation, *args)
@@ -338,6 +325,7 @@ class BackendThread(QThread):
                 topology_snapshot=args[1]
                 if len(args) > 1 and isinstance(args[1], Layout)
                 else None,
+                hdr_target=args[2] if len(args) > 2 and isinstance(args[2], str) else None,
             )
             self.pending.emit(self.handle.deadline)
             result = await self.handle.wait()
@@ -415,8 +403,6 @@ class BackendThread(QThread):
         if operation in {"load", "switch", "capture"}:
             assert self.inspector is not None
             inspection = await self.inspector.inspect()
-            if operation in {"load", "switch"} and self.coordinator:
-                pin(self.coordinator.paths, connections=connection_key(inspection.monitors))
             if operation == "capture":
                 store.save(
                     str(payload["name"]),
@@ -488,14 +474,7 @@ class BackendThread(QThread):
             self.automation_saved.emit()
         else:
             assert self.coordinator is not None
-            if operation == "automation-edit-pin":
-                if self.latest_inspection and not control(self.coordinator.paths)["pinned"]:
-                    pin(
-                        self.coordinator.paths,
-                        connections=connection_key(self.latest_inspection.monitors),
-                    )
-            else:
-                pin(self.coordinator.paths, operation == "automation-pin")
+            pin(self.coordinator.paths, operation == "automation-pin")
 
     async def _automatic_loop(self) -> None:
         assert self.automation is not None and self.inspector is not None

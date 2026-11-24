@@ -24,15 +24,19 @@ from monarch.domain.advanced import AdvancedState, features
 
 
 class AdvancedDialog(QDialog):
-    def __init__(self, state: AdvancedState, parent: QWidget | None = None) -> None:
+    hdr_requested = Signal()
+
+    def __init__(
+        self, state: AdvancedState, parent: QWidget | None = None, *, hdr_ready: bool = False
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Advanced display settings")
         self.resize(960, 460)
         self.setModal(True)
         layout = QVBoxLayout(self)
         note = QLabel(
-            "Observation snapshot. VRR Off/On is available in the display editor. "
-            "Hardware flags, current state and validated write support are different evidence."
+            "VRR is available in the display editor. The HDR preview returns to SDR "
+            "when the timer expires or you choose Revert."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -45,8 +49,14 @@ class AdvancedDialog(QDialog):
                 (
                     feature.label,
                     feature.observation,
-                    "Editor: Off/On" if feature.writable else "Unavailable",
-                    feature.reason,
+                    "Timed preview"
+                    if feature.key == "hdr" and hdr_ready
+                    else "Editor: Off/On"
+                    if feature.writable
+                    else "Unavailable",
+                    "Verify HDR using the monitor’s on-screen display."
+                    if feature.key == "hdr" and hdr_ready
+                    else feature.reason,
                 )
             ):
                 item = QTableWidgetItem(text)
@@ -57,6 +67,13 @@ class AdvancedDialog(QDialog):
         self.table.resizeRowsToContents()
         layout.addWidget(self.table)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        hdr = buttons.addButton("Preview HDR…", QDialogButtonBox.ButtonRole.ActionRole)
+        hdr.setEnabled(hdr_ready)
+        hdr.setToolTip(
+            "Requires a clean managed SDR layout, an HDR-capable display, "
+            "and another active independent display."
+        )
+        hdr.clicked.connect(self.hdr_requested.emit)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 

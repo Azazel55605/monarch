@@ -95,17 +95,29 @@ def pin(paths: Paths, pinned: bool = True, *, connections: str = "") -> str:
         return generation
 
 
-def resume_on_connection_change(paths: Paths, connections: str) -> dict[str, Any]:
+def interrupt_offer(paths: Paths) -> None:
+    lock = SessionLock(paths)
+    lock.path = paths.runtime / "automation-control.lock"
+    with lock:
+        state = control(paths)
+        if not state["pinned"]:
+            write_json(
+                paths.runtime / "automation-control.json",
+                {"generation": uuid.uuid4().hex, "pinned": False},
+            )
+
+
+def clear_edit_pause(paths: Paths) -> dict[str, Any]:
     state = control(paths)
-    if not state["pinned"] or state.get("connections") in (None, "", connections):
+    if not state["pinned"] or not state.get("connections"):
         return state
     path = paths.runtime / "automation-control.json"
     lock = SessionLock(paths)
     lock.path = paths.runtime / "automation-control.lock"
     with lock:
-        # Recheck after taking the lock so a concurrent explicit pause wins.
+        # Clear old edit-generated pauses. An explicit session pause still wins.
         state = control(paths)
-        if state["pinned"] and state.get("connections") not in (None, "", connections):
+        if state["pinned"] and state.get("connections"):
             state = {"generation": uuid.uuid4().hex, "pinned": False}
             write_json(path, state)
     return state

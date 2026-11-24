@@ -187,9 +187,9 @@ hl.window_rule({
 
 If you are testing a TV on a port previously used by another display, select the
 correct TV input. Confirm the TV appears in `hyprctl -j monitors all`. If the
-compositor has no TV entry, Monarch has no modes to select. Use **Resume automatic
-switching** once to clear any pause left by rc6. Subsequent manual edits pause only
-the current setup. If Hyprland is using the previous display’s unsupported refresh
+compositor has no TV entry, Monarch has no modes to select. Automatic previews
+wait for unsaved drafts and manual previews. Use **Resume automatic switching**
+to clear an explicit tray pause. If Hyprland is using the previous display’s unsupported refresh
 rate on that port, Revert restores an advertised timing for the replacement.
 The preview applies the detected layout live and Keep confirms
 it for this session. The saved startup layout is updated only when you explicitly

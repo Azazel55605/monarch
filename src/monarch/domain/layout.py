@@ -237,10 +237,13 @@ def lua_string(value: str) -> str:
     )
 
 
-def rule(output: Output, *, legacy: bool = False) -> str:
+def rule(output: Output, *, legacy: bool = False, hdr: bool | None = None) -> str:
     Output.parse(asdict(output), allow_preferred=True)
     if legacy and output.vrr:
         raise MonarchError("Legacy monitor rules cannot represent VRR On.")
+    color = []
+    if hdr is not None:
+        color = ['cm="hdr"', "bitdepth=10"] if hdr else ['cm="srgb"', "bitdepth=8"]
     return (
         "hl.monitor({"
         + ",".join(
@@ -254,6 +257,7 @@ def rule(output: Output, *, legacy: bool = False) -> str:
                 "mirror=" + lua_string(output.mirror),
             ]
             + ([] if legacy else ["vrr=" + str(output.vrr)])
+            + color
         )
         + "})"
     )

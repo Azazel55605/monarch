@@ -686,6 +686,61 @@ def test_advanced_observation_dialog_is_read_only_and_active_state_blocks_apply(
     dialog.accept()
 
 
+def test_hdr_preview_from_advanced_dialog_and_editor_use_do_not_pause_automation(
+    qtbot, guard_setup
+):
+    from PySide6.QtWidgets import QPushButton
+    from test_hdr import enable_hdr_fixture
+
+    from monarch.storage.automation import control
+    from monarch.ui.worker import BackendThread
+
+    coordinator, managed, _, _, state = guard_setup
+    layout, _ = enable_hdr_fixture(coordinator, managed, state)
+    worker = BackendThread(
+        session=coordinator.session,
+        managed=managed.directory,
+        env=dict(coordinator.env, XDG_STATE_HOME=str(coordinator.state_home)),
+        executable=coordinator.executable,
+    )
+    window = MainWindow(worker)
+    qtbot.addWidget(window)
+    window.show()
+    worker.start()
+    try:
+        qtbot.waitUntil(lambda: window.ready, timeout=10000)
+        second = window.canvas.items_by_name[layout.outputs[1].name]
+        qtbot.mouseClick(
+            window.canvas.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=window.canvas.mapFromScene(second.sceneBoundingRect().center()),
+        )
+        assert window.model.selected == layout.outputs[1].name
+        window.position_x.setValue(3000)
+        qtbot.waitUntil(lambda: not worker.ui_idle)
+        assert not control(coordinator.paths)["pinned"]
+        window.discard_edits()
+        window.select_display(layout.outputs[0].name)
+        window.show_advanced()
+        button = next(
+            b
+            for b in window.advanced_dialog.findChildren(QPushButton)
+            if b.text() == "Preview HDR…"
+        )
+        assert button.isEnabled()
+        button.click()
+        qtbot.waitUntil(lambda: window.confirmation is not None, timeout=10000)
+        assert not window.confirmation.keep.isVisible()
+        window.confirmation.revert.click()
+        qtbot.waitUntil(lambda: not window.model.busy and window.ready, timeout=10000)
+        assert "SDR restored" in window.notice
+        assert not control(coordinator.paths)["pinned"]
+    finally:
+        window._closing = True
+        window.close()
+        qtbot.waitUntil(lambda: not worker.isRunning(), timeout=10000)
+
+
 def test_advanced_changes_mark_dirty_drafts_stale(window, inspection):
     window.position_x.setValue(-100)
     draft = window.model.draft

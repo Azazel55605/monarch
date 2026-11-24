@@ -198,6 +198,14 @@ async def run(request_path: Path) -> int:
             location = config_location(session, resolve_xdg=allow_xdg)
             active = location.path if location.verified else None
             snapshot = request.get("topology_snapshot")
+            hdr_target = request.get("hdr_target")
+            if hdr_target is not None and (
+                not isinstance(hdr_target, str)
+                or not hdr_target
+                or authorization is not None
+                or snapshot is not None
+            ):
+                raise MonarchError("Invalid standalone HDR preview request.")
             async with asyncio.timeout(20):
                 await transaction.prepare(
                     managed,
@@ -206,6 +214,7 @@ async def run(request_path: Path) -> int:
                     seconds,
                     allow_topology_rebase=authorization is not None or snapshot is not None,
                     topology_snapshot=Layout.parse(snapshot) if snapshot is not None else None,
+                    hdr_target=hdr_target,
                 )
             assert transaction.record is not None
             if authorization is not None:

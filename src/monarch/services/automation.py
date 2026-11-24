@@ -10,17 +10,17 @@ from monarch.backends.hyprland.inspector import Inspection
 from monarch.domain.advanced import basic_issues
 from monarch.domain.policy import Policy, Selection, choose, topology
 from monarch.domain.profiles import candidates_for
-from monarch.domain.quick_layout import connection_key, external, identity, new_display_layout
+from monarch.domain.quick_layout import external, identity, new_display_layout
 from monarch.errors import MonarchError
 from monarch.services.baseline import known_baseline
 from monarch.services.coordinator import Coordinator
 from monarch.services.state import SessionLock, session_token
 from monarch.storage.automation import (
     PolicyStore,
+    clear_edit_pause,
     control,
     permit,
     profile_snapshot,
-    resume_on_connection_change,
 )
 from monarch.storage.files import digest, read_json, read_private, write_json
 from monarch.storage.managed import Managed, parse_content
@@ -145,8 +145,8 @@ class Automation:
             self.stable_key = ""
             self.save_attempt()
         state = control(self.paths)
-        if ready and idle and inspection.monitors and state.get("connections"):
-            state = resume_on_connection_change(self.paths, connection_key(inspection.monitors))
+        if state.get("connections"):
+            state = clear_edit_pause(self.paths)
         self.generation = state["generation"]
         catalog = profile_snapshot(self.profiles.path)
         profiles = decode(json.loads(catalog))
@@ -195,9 +195,7 @@ class Automation:
         if state["pinned"]:
             self.stable_key = ""
             return self.status(
-                "Manual edits paused switching until the connected displays change."
-                if state.get("connections")
-                else "Automatic switching is paused for this session. Use Resume to continue.",
+                "Automatic switching is paused for this session. Use Resume to continue.",
                 now=now,
             ), None
         if not ready or not idle:

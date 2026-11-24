@@ -19,7 +19,13 @@ class Writer(Hyprctl):
         return read_connector_states(monitors) if self.native_drm else monitors
 
     async def set_output(self, output: Output) -> None:
-        response = await self._request(("eval", rule(output)))
+        await self._set_rule(rule(output))
+
+    async def set_hdr(self, output: Output, enabled: bool) -> None:
+        await self._set_rule(rule(output, hdr=enabled))
+
+    async def _set_rule(self, command: str) -> None:
+        response = await self._request(("eval", command))
         if response.strip() != b"ok":
             raise MonarchError("Hyprland rejected a monitor update.")
         await self.check_errors()

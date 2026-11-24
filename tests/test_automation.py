@@ -102,6 +102,15 @@ def test_catalog_change_revokes_authorization(automatic):
         engine.authorize()
 
 
+def test_upgrade_clears_old_edit_pause_without_waiting_for_a_hotplug(automatic):
+    engine, inspection, _, managed, _ = automatic
+    pin(engine.paths, connections="unchanged-topology")
+    status, proposal = engine.evaluate(inspection, idle=False, ready=True, managed=managed)
+    assert proposal is None
+    assert not status["pinned"]
+    assert offer(engine, inspection) is not None
+
+
 def test_automatic_guard_keep_then_manual_preemption_restores_before_manual_switch(automatic):
     engine, inspection, _, managed, desired = automatic
     coordinator = engine.coordinator
@@ -116,7 +125,7 @@ def test_automatic_guard_keep_then_manual_preemption_restores_before_manual_swit
         manual = await coordinator.preview(managed, baseline, seconds=10)
         assert (await handle.wait())["state"] == "reverted"
         assert (await manual.decide(keep=True))["state"] == "kept"
-        assert control(engine.paths)["pinned"]
+        assert not control(engine.paths)["pinned"]
 
     asyncio.run(run())
 

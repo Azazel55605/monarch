@@ -163,3 +163,14 @@ def require_basic(monitors: tuple[Monitor, ...]) -> None:
         raise MonarchError(
             "Advanced display state cannot be restored by the basic guard. " + " ".join(issues)
         )
+
+
+def hdr_available(monitor: Monitor) -> bool:
+    return (
+        monitor.disabled is False
+        and monitor.mirror_known
+        and not monitor.mirror_of
+        and monitor.dpms_on is not False
+        and monitor.advanced.hdr_metadata is True
+        and monitor.advanced.bt2020 is True
+    )

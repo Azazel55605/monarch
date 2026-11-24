@@ -26,22 +26,32 @@ from monarch.storage.integration import IntegrationPlan
 class ConfirmationDialog(QDialog):
     decision = Signal(bool, bool)
 
-    def __init__(self, deadline: float, persist: bool, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, deadline: float, persist: bool, parent: QWidget | None = None, *, hdr: bool = False
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Keep this display layout?")
+        self.setWindowTitle("HDR preview" if hdr else "Keep this display layout?")
         self.setObjectName("confirmationDialog")
         self.setModal(True)
         self.deadline = deadline
         self.persist = persist
         self.sent = False
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Are all displays working as expected?"))
+        layout.addWidget(
+            QLabel(
+                "Check the monitor’s on-screen display for HDR."
+                if hdr
+                else "Are all displays working as expected?"
+            )
+        )
         self.countdown = QLabel()
         self.countdown.setAccessibleName("Seconds before automatic revert")
         layout.addWidget(self.countdown)
         layout.addWidget(
             QLabel(
-                "Keeping also saves this layout on login."
+                "The display will return to SDR."
+                if hdr
+                else "Keeping also saves this layout on login."
                 if persist
                 else "Keeping changes this session only."
             )
@@ -53,6 +63,8 @@ class ConfirmationDialog(QDialog):
         self.revert.setObjectName("revertChanges")
         self.revert.setDefault(True)
         self.keep.setAutoDefault(False)
+        self.keep.setVisible(not hdr)
+        self.keep.setEnabled(not hdr)
         self.keep.clicked.connect(lambda: self.choose(True))
         self.revert.clicked.connect(lambda: self.choose(False))
         layout.addWidget(buttons)
