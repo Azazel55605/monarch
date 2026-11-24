@@ -46,6 +46,12 @@ def hotplug_baseline(monitors: tuple[Monitor, ...], baseline: Layout, disk: Layo
     outputs = []
     for monitor in monitors:
         hdr_output = hdr_bindings.get(monitor.name)
+        if (
+            hdr_output
+            and monitor.advanced.hdr_active
+            and not hdr_output.sdr_tuning_matches(monitor.advanced)
+        ):
+            raise MonarchError("Live SDR tone controls differ from the owned HDR layout.")
         policy = hdr_output.vrr if hdr_output else policies.get(identity(monitor), 0)
         same_size = [
             m for m in monitor.modes if (m.width, m.height) == (monitor.width, monitor.height)

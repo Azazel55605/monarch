@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -33,7 +34,12 @@ from PySide6.QtWidgets import (
 
 from monarch.backends.hyprland.inspector import Inspection
 from monarch.backends.hyprland.support import blockers
-from monarch.domain.advanced import AdvancedState, hdr_available
+from monarch.domain.advanced import (
+    SDR_MULTIPLIER_MAX,
+    SDR_MULTIPLIER_MIN,
+    AdvancedState,
+    hdr_available,
+)
 from monarch.domain.layout import Layout, unique_hdr_target
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.policy import Policy
@@ -246,6 +252,20 @@ class MainWindow(QMainWindow):
         self.hdr.addItem("Off", False)
         self.hdr.addItem("On (10-bit HDR)", True)
         form.addRow("HDR", self.hdr)
+        self.sdr_brightness = QDoubleSpinBox()
+        self.sdr_saturation = QDoubleSpinBox()
+        for caption, tone_field in (
+            ("SDR brightness", self.sdr_brightness),
+            ("SDR saturation", self.sdr_saturation),
+        ):
+            tone_field.setRange(SDR_MULTIPLIER_MIN, SDR_MULTIPLIER_MAX)
+            tone_field.setDecimals(2)
+            tone_field.setSingleStep(0.05)
+            tone_field.setSuffix("×")
+            tone_field.setKeyboardTracking(False)
+            tone_field.setAccessibleName(caption)
+            tone_field.setToolTip("Adjusts SDR content while HDR is on. 1.00× is neutral.")
+            form.addRow(caption, tone_field)
         self.position_x = QSpinBox()
         self.position_y = QSpinBox()
         for name, spin in [
@@ -323,6 +343,8 @@ class MainWindow(QMainWindow):
         self.resolution.currentIndexChanged.connect(self.resolution_changed)
         self.vrr.currentIndexChanged.connect(self.fields_changed)
         self.hdr.currentIndexChanged.connect(self.fields_changed)
+        self.sdr_brightness.valueChanged.connect(self.fields_changed)
+        self.sdr_saturation.valueChanged.connect(self.fields_changed)
         self.refresh_rate.currentIndexChanged.connect(self.fields_changed)
         self.enabled.toggled.connect(self.fields_changed)
         self.scale.currentIndexChanged.connect(self.fields_changed)
@@ -416,6 +438,8 @@ class MainWindow(QMainWindow):
         output = self.model.output(self.model.selected)
         self.vrr.setEnabled(False)
         self.hdr.setEnabled(False)
+        self.sdr_brightness.setEnabled(False)
+        self.sdr_saturation.setEnabled(False)
         self.properties.setEnabled(
             output is not None and not self.model.busy and not self._profile_loading
         )
@@ -445,6 +469,10 @@ class MainWindow(QMainWindow):
                 and unique_hdr_target(output, self.model.inspection.monitors)
             )
             self.hdr.setEnabled(output.enabled and (hdr_supported or output.hdr))
+            self.sdr_brightness.setValue(output.sdr_brightness)
+            self.sdr_saturation.setValue(output.sdr_saturation)
+            self.sdr_brightness.setEnabled(output.enabled and output.hdr and hdr_supported)
+            self.sdr_saturation.setEnabled(output.enabled and output.hdr and hdr_supported)
             self.hdr.setToolTip(
                 "Preview and keep HDR for this display, or select Off to restore SDR."
                 if hdr_supported
@@ -550,18 +578,29 @@ class MainWindow(QMainWindow):
             return
         mode = self.refresh_rate.currentData() or current.mode
         scale = self.scale.currentData() or current.scale
+        enabled = self.enabled.isChecked()
+        hdr = enabled and (bool(self.hdr.currentData()) if self.hdr.isEnabled() else current.hdr)
+        brightness, saturation = 1.0, 1.0
+        if hdr:
+            brightness = current.sdr_brightness
+            saturation = current.sdr_saturation
+            if self.sender() is self.sdr_brightness and self.sdr_brightness.isEnabled():
+                brightness = self.sdr_brightness.value()
+            if self.sender() is self.sdr_saturation and self.sdr_saturation.isEnabled():
+                saturation = self.sdr_saturation.value()
         self.model.update(
             self.model.selected,
             mode=mode,
-            enabled=self.enabled.isChecked(),
+            enabled=enabled,
             scale=scale,
             transform=self.rotation.currentIndex(),
             x=self.position_x.value(),
             y=self.position_y.value(),
             mirror=self.mirror.currentData() or "",
             vrr=self.vrr.currentData() if self.vrr.isEnabled() else current.vrr,
-            hdr=self.enabled.isChecked()
-            and (bool(self.hdr.currentData()) if self.hdr.isEnabled() else current.hdr),
+            hdr=hdr,
+            sdr_brightness=brightness,
+            sdr_saturation=saturation,
         )
         self.render_state()
 

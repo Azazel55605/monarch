@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 from typing import Any
 
+from monarch.domain.advanced import AdvancedState, valid_sdr_multiplier
 from monarch.domain.monitors import Mode, Monitor
 from monarch.domain.scaling import scale_fits
 from monarch.errors import MonarchError
@@ -26,6 +27,15 @@ class Output:
     mirror: str = ""
     vrr: int = 0
     hdr: bool = False
+    sdr_brightness: float = 1.0
+    sdr_saturation: float = 1.0
+
+    def sdr_tuning_matches(self, state: AdvancedState) -> bool:
+        tuning = state.sdr_tuning
+        return tuning is not None and (
+            math.isclose(tuning[0], self.sdr_brightness, abs_tol=0.0001, rel_tol=1e-7)
+            and math.isclose(tuning[1], self.sdr_saturation, abs_tol=0.0001, rel_tol=1e-7)
+        )
 
     @property
     def hdr_selector(self) -> str:
@@ -64,6 +74,11 @@ class Output:
             raise MonarchError("VRR policy must be Off (0) or On (1).")
         if type(row["hdr"]) is not bool:
             raise MonarchError("HDR policy must be On or Off.")
+        brightness, saturation = row["sdr_brightness"], row["sdr_saturation"]
+        if not valid_sdr_multiplier(brightness) or not valid_sdr_multiplier(saturation):
+            raise MonarchError("Invalid SDR brightness or saturation multiplier.")
+        if not row["hdr"] and (brightness != 1 or saturation != 1):
+            raise MonarchError("SDR brightness and saturation tuning requires HDR On.")
         scale = row["scale"]
         if type(scale) not in (int, float) or not 0.25 <= scale <= 8:
             raise MonarchError("Scale must be finite and between 0.25 and 8.")
@@ -99,6 +114,20 @@ class Layout:
 
     def to_dict(self) -> dict[str, Any]:
         rows = [asdict(output) for output in self.outputs]
+        if any(
+            any(
+                type(row[key]) not in (int, float) or row[key] != 1
+                for key in (
+                    "sdr_brightness",
+                    "sdr_saturation",
+                )
+            )
+            for row in rows
+        ):
+            return {"schema_version": 4, "outputs": rows}
+        for row in rows:
+            row.pop("sdr_brightness")
+            row.pop("sdr_saturation")
         if any(o.hdr is not False for o in self.outputs):
             return {"schema_version": 3, "outputs": rows}
         for row in rows:
@@ -129,7 +158,7 @@ class Layout:
     def parse(cls, data: object) -> "Layout":
         if not isinstance(data, dict) or set(data) != {"schema_version", "outputs"}:
             raise MonarchError("Layout must contain schema_version and outputs only.")
-        if type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2, 3):
+        if type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2, 3, 4):
             raise MonarchError("Unsupported layout schema version.")
         if not isinstance(data["outputs"], list) or not 1 <= len(data["outputs"]) <= 32:
             raise MonarchError("Layout must contain between 1 and 32 outputs.")
@@ -143,6 +172,10 @@ class Layout:
                 if not isinstance(row, dict) or "hdr" in row:
                     raise MonarchError("Older layouts cannot contain HDR policy.")
                 row = dict(row, hdr=False)
+            if data["schema_version"] < 4:
+                if not isinstance(row, dict) or {"sdr_brightness", "sdr_saturation"} & row.keys():
+                    raise MonarchError("Older layouts cannot contain SDR tone controls.")
+                row = dict(row, sdr_brightness=1.0, sdr_saturation=1.0)
             outputs.append(Output.parse(row))
         layout = cls(tuple(outputs))
         layout.validate_structure()
@@ -232,7 +265,10 @@ class Layout:
             if not output.enabled:
                 continue
             if check_color and (
-                (output.hdr and not m.advanced.hdr_active)
+                (
+                    output.hdr
+                    and (not m.advanced.hdr_active or not output.sdr_tuning_matches(m.advanced))
+                )
                 or (
                     not output.hdr
                     and (m.advanced.color_preset != "srgb" or m.advanced.bit_depth != 8)
@@ -306,6 +342,10 @@ def capture_output(m: Monitor, *, policy: int = 0) -> Output:
     ):
         raise MonarchError("Current output settings cannot be represented safely.")
     mode = candidates[0] if candidates else None
+    hdr = m.disabled is False and m.advanced.hdr_active
+    tuning = m.advanced.sdr_tuning if hdr else (1.0, 1.0)
+    if tuning is None:
+        raise MonarchError("Current SDR brightness and saturation cannot be captured safely.")
     output = Output(
         m.name,
         m.make,
@@ -319,7 +359,8 @@ def capture_output(m: Monitor, *, policy: int = 0) -> Output:
         not m.disabled,
         m.mirror_of or "",
         policy,
-        m.disabled is False and m.advanced.hdr_active,
+        hdr,
+        *tuning,
     )
     return Output.parse(asdict(output), allow_preferred=not output.enabled)
 
@@ -351,6 +392,10 @@ def rule(
     color = []
     if hdr is not None:
         color = ['cm="hdr"', "bitdepth=10"] if hdr else ['cm="srgb"', "bitdepth=8"]
+    if hdr and output.sdr_brightness != 1:
+        color.append("sdrbrightness=" + repr(float(output.sdr_brightness)))
+    if hdr and output.sdr_saturation != 1:
+        color.append("sdrsaturation=" + repr(float(output.sdr_saturation)))
     return (
         "hl.monitor({"
         + ",".join(

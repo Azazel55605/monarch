@@ -25,6 +25,16 @@ FORMATS = {
     "XBGR16161616F": 16,
 }
 PRESETS = {"auto", "srgb", "wide", "edid", "hdr", "hdredid", "dcip3", "dp3", "adobe"}
+SDR_MULTIPLIER_MIN = 0.01
+SDR_MULTIPLIER_MAX = 100000.0
+
+
+def valid_sdr_multiplier(value: object) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and SDR_MULTIPLIER_MIN <= value <= SDR_MULTIPLIER_MAX
+    )
 
 
 @dataclass(frozen=True)
@@ -47,6 +57,15 @@ class AdvancedState:
     @property
     def hdr_active(self) -> bool:
         return self.color_preset == "hdr" and self.bit_depth == 10
+
+    @property
+    def sdr_tuning(self) -> tuple[float, float] | None:
+        brightness, saturation = self.sdr_brightness, self.sdr_saturation
+        if brightness is None or saturation is None:
+            return None
+        if not valid_sdr_multiplier(brightness) or not valid_sdr_multiplier(saturation):
+            return None
+        return brightness, saturation
 
     def to_dict(self) -> dict[str, Any]:
         return dict(asdict(self), observed_bit_depth=self.bit_depth, icc_state="not_reported")
@@ -161,13 +180,15 @@ def basic_issues(
                 issues.add("The current pixel format is not verified 8-bit SDR or owned HDR.")
             if state.color_preset != "srgb":
                 issues.add("The color preset is not verified sRGB or owned HDR.")
-        values = (
-            (state.sdr_brightness, 1),
-            (state.sdr_saturation, 1),
+        values = [
             (state.sdr_min_luminance, 0.2),
             (state.sdr_max_luminance, 80),
-        )
-        if any(value is None or abs(value - expected) > 0.0001 for value, expected in values):
+        ]
+        if not owned_hdr:
+            values.extend(((state.sdr_brightness, 1), (state.sdr_saturation, 1)))
+        if (owned_hdr and state.sdr_tuning is None) or any(
+            value is None or abs(value - expected) > 0.0001 for value, expected in values
+        ):
             issues.add("SDR color parameters differ from the basic baseline or are unknown.")
     return tuple(sorted(issues))
 

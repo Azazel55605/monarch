@@ -56,6 +56,8 @@ def draft_layout(monitors: tuple[Monitor, ...]) -> Layout:
             if m.width and m.height and m.refresh_hz
             else "preferred"
         )
+        hdr = m.disabled is False and m.advanced.hdr_active
+        tuning = (m.advanced.sdr_tuning if hdr else None) or (1.0, 1.0)
         outputs.append(
             Output(
                 m.name,
@@ -70,7 +72,8 @@ def draft_layout(monitors: tuple[Monitor, ...]) -> Layout:
                 m.disabled is not True,
                 m.mirror_of or "",
                 int(m.advanced.vrr_active is True),
-                m.disabled is False and m.advanced.hdr_active,
+                hdr,
+                *tuning,
             )
         )
     return Layout(tuple(outputs))

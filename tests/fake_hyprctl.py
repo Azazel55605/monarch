@@ -133,9 +133,14 @@ with path.open("r+") as stream:
                             )
                             if preset == "hdr" and data.get("hdr_at_8bit"):
                                 m["currentFormat"] = "XRGB8888"
+                            if not data.get("ignore_sdr_tuning"):
+                                m["sdrBrightness"] = values.get("sdrbrightness", 1.0)
+                                m["sdrSaturation"] = values.get("sdrsaturation", 1.0)
                     elif command == "reload":
                         m["colorManagementPreset"] = "hdr" if output.hdr else "srgb"
                         m["currentFormat"] = "XRGB2101010" if output.hdr else "XRGB8888"
+                        m["sdrBrightness"] = output.sdr_brightness
+                        m["sdrSaturation"] = output.sdr_saturation
     stream.seek(0)
     json.dump(data, stream)
     stream.truncate()

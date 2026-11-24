@@ -75,7 +75,7 @@ def test_existing_schema_remains_strict_against_unsupported_advanced_imports(mon
     layout["outputs"][0]["hdr"] = True
     with pytest.raises(MonarchError, match="Older layouts cannot contain HDR"):
         Layout.parse(layout)
-    layout["schema_version"] = 4
+    layout["schema_version"] = 5
     with pytest.raises(MonarchError, match="schema version"):
         Layout.parse(layout)
 

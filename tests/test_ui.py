@@ -737,8 +737,13 @@ def test_hdr_preview_from_advanced_dialog_and_editor_use_do_not_pause_automation
         assert not control(coordinator.paths)["pinned"]
 
         assert window.hdr.isEnabled()
+        assert not window.sdr_brightness.isEnabled()
+        assert not window.sdr_saturation.isEnabled()
         window.hdr.setCurrentIndex(1)
         assert window.model.draft.outputs[0].hdr
+        assert window.sdr_brightness.isEnabled() and window.sdr_saturation.isEnabled()
+        window.sdr_brightness.setValue(1.3)
+        window.sdr_saturation.setValue(0.9)
         assert window.apply.isEnabled()
         window.persist.setChecked(True)
         window.start_preview()
@@ -751,6 +756,8 @@ def test_hdr_preview_from_advanced_dialog_and_editor_use_do_not_pause_automation
         )
         assert managed.read()[0].outputs[0].hdr
         assert window.hdr.currentData() is True
+        assert managed.read()[0].outputs[0].sdr_brightness == 1.3
+        assert managed.read()[0].outputs[0].sdr_saturation == 0.9
     finally:
         window._closing = True
         window.close()

@@ -154,10 +154,72 @@ def test_failed_hdr_depth_change_still_recovers_sdr(guard_setup):
     hdr = Layout((replace(sdr.outputs[0], hdr=True), sdr.outputs[1]))
 
     async def run():
-        with pytest.raises(MonarchError, match="HDR/SDR preset or bit depth"):
+        with pytest.raises(MonarchError, match="HDR/SDR preset, bit depth"):
             await coordinator.preview(managed, hdr)
         assert coordinator.paths.status()["status"] == "reverted"
         assert sdr.matches(parse_monitors(json.loads(state.read_text())["monitors"]))
         assert managed.read()[1] == disk
 
     asyncio.run(run())
+
+
+def test_sdr_tuning_is_verified_restored_and_saved_with_hdr(guard_setup, tmp_path):
+    coordinator, managed, _, _, state = guard_setup
+    sdr, _ = enable_hdr_fixture(coordinator, managed, state)
+    hdr = Layout((replace(sdr.outputs[0], hdr=True), sdr.outputs[1]))
+    tuned = Layout(
+        (replace(hdr.outputs[0], sdr_brightness=1.35, sdr_saturation=0.85), hdr.outputs[1])
+    )
+    store = ProfileStore(tmp_path / "profiles")
+    profile = store.save("HDR desktop", tuned)
+
+    def live():
+        return parse_monitors(json.loads(state.read_text())["monitors"])
+
+    async def run():
+        preview = await coordinator.preview(managed, hdr)
+        assert (await preview.decide(keep=True, persist=True))["reason"] == "persisted"
+        _, old_content = managed.read()
+        assert b"sdrbrightness=" not in old_content
+        assert hdr.to_dict()["schema_version"] == 3
+
+        loaded = resolve(store.get(profile.id), live())
+        assert loaded == tuned and loaded.to_dict()["schema_version"] == 4
+        preview = await coordinator.preview(managed, loaded)
+        assert tuned.matches(live()) and not hdr.matches(live())
+        assert (await preview.decide(keep=False))["state"] == "reverted"
+        assert hdr.matches(live())
+        assert managed.read()[1] == old_content
+
+        raw = json.loads(state.read_text())
+        state.write_text(json.dumps(dict(raw, ignore_sdr_tuning=True)))
+        with pytest.raises(MonarchError, match="SDR tone controls did not settle"):
+            await coordinator.preview(managed, loaded)
+        assert coordinator.paths.status()["status"] == "reverted" and hdr.matches(live())
+        raw = json.loads(state.read_text())
+        state.write_text(json.dumps(dict(raw, ignore_sdr_tuning=False)))
+
+        preview = await coordinator.preview(managed, loaded)
+        assert (await preview.decide(keep=True, persist=True))["reason"] == "persisted"
+        saved, content = managed.read()
+        assert saved == tuned and tuned.matches(live())
+        assert b"sdrbrightness=1.35,sdrsaturation=0.85" in content
+        assert Layout.capture(live()) == tuned
+
+        preview = await coordinator.preview(managed, sdr)
+        assert live()[0].advanced.sdr_tuning == (1.0, 1.0)
+        assert (await preview.decide(keep=False))["state"] == "reverted"
+        assert tuned.matches(live())
+        assert managed.read()[1] == content
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("value", [True, 0, -1, float("nan"), float("inf"), "1.2"])
+def test_sdr_tuning_rejects_invalid_values(guard_setup, value):
+    _, _, baseline, _, _ = guard_setup
+    bad = Layout(
+        (replace(baseline.outputs[0], hdr=True, sdr_brightness=value), baseline.outputs[1])
+    )
+    with pytest.raises(MonarchError, match="multiplier"):
+        Layout.parse(bad.to_dict())

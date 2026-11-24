@@ -21,6 +21,10 @@ description and serial. Profiles store HDR alongside VRR and geometry. Older
 layouts open with HDR Off. HDR Off selects the SDR desktop preset. Hyprland's
 fullscreen auto-HDR setting is independent.
 
+With HDR On, **SDR brightness** and **SDR saturation** adjust SDR content on
+that display. Both default to 1.00× and follow the same Preview, Keep, Save on
+login and profile workflow as HDR.
+
 Advanced settings also offers **Preview HDR** from an all-SDR layout with a
 second independent display active. The timed test always returns to SDR.
 

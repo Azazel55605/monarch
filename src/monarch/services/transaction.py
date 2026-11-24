@@ -223,7 +223,11 @@ class Transaction:
                 require_basic(live, hdr=self._hdr_scope, recovering=recovering)
                 break
             if time.monotonic() >= deadline:
-                detail = " (HDR/SDR preset or bit depth did not settle)" if color_write else ""
+                detail = (
+                    " (HDR/SDR preset, bit depth, or SDR tone controls did not settle)"
+                    if color_write
+                    else ""
+                )
                 if verify_vrr and selected[0].advanced.vrr_active is not bool(output.vrr):
                     requested = "On" if output.vrr else "Off"
                     observed = "On" if selected[0].advanced.vrr_active else "Off"
@@ -297,6 +301,7 @@ class Transaction:
                 not hdr_available(target)
                 or target.advanced.color_preset != "hdr"
                 or target.advanced.bit_depth != 10
+                or not output.sdr_tuning_matches(target.advanced)
             ):
                 return False
             require_basic(tuple(m for m in live if m.name != target.name), hdr=self._hdr_scope)
