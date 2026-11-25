@@ -72,12 +72,13 @@ Monarch uses the closest scale that produces whole logical pixels for the chosen
 mode. Saved profiles use their own scale.
 
 Start at login is a separate opt-in XDG entry. A session autostart host must run it;
-plain Hyprland alone does not guarantee that. `monarch automation run` starts a
-minimized editor/tray without enabling the policy. Closing the editor hides it to
-an available tray and preserves drafts and the running monitor watcher. Open it
-again from the tray; use Quit Monarch to exit. During a preview, finish Keep/Revert
-before hiding. Without a tray host, closing exits normally. `monarch gui --no-tray`
-also exits on close. Tray/background operation does not enable automatic switching.
+plain Hyprland alone does not guarantee that. `monarch automation run` starts in
+the background with the editor hidden. Open the editor from the tray or with
+`monarch gui`. Automatic previews still open a confirmation window. Closing the
+editor keeps the login runner or an available tray active, with drafts and the
+monitor watcher preserved. Use Quit Monarch from the tray to exit. During a
+preview, finish Keep/Revert before hiding. A standalone editor without a tray
+host exits on close. Tray/background operation does not enable automatic switching.
 
 ## Problems and recovery
 

@@ -41,10 +41,13 @@ def launch(
     app = existing if isinstance(existing, QApplication) else QApplication(sys.argv[:1])
     configure_app(app)
     bus = QDBusConnection.sessionBus()
-    if quick_panel and forward_panel(bus, quick_panel):
+    panel = quick_panel
+    if not panel and tray and not (background or directory or profile or profile_directory):
+        panel = "editor"
+    if panel and forward_panel(bus, panel):
         return 0
     tray_available = tray and QSystemTrayIcon.isSystemTrayAvailable()
-    app.setQuitOnLastWindowClosed(not (tray_available or quick_panel))
+    app.setQuitOnLastWindowClosed(not (background or tray_available or quick_panel))
     worker = BackendThread(managed=directory.expanduser().absolute() if directory else None)
     if profile_directory is not None:
         from monarch.storage.profiles import ProfileStore
@@ -58,12 +61,13 @@ def launch(
         startup_profile=profile,
         persist_profile=persist,
         tray_enabled=tray,
+        background=background,
     )
     if theme.warning:
         window.notice = theme.warning
     activation = PanelActivation(window, quick_panel)
     registered = activation.register(bus)
-    if quick_panel and not registered and forward_panel(bus, quick_panel):
+    if panel and not registered and forward_panel(bus, panel):
         return 0
     worker.profiles.connect(activation.initialized, Qt.ConnectionType.QueuedConnection)
     worker.profile_failed.connect(activation.initialized, Qt.ConnectionType.QueuedConnection)
@@ -76,8 +80,8 @@ def launch(
 
         window.quick_panel_closed.connect(lambda: QTimer.singleShot(0, quit_if_idle))
         app.lastWindowClosed.connect(lambda: QTimer.singleShot(0, quit_if_idle))
-    if not quick_panel:
-        window.showMinimized() if background else window.show()
+    if not background and not quick_panel:
+        window.show()
     worker.start()
     try:
         return app.exec()

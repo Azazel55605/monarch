@@ -1,4 +1,4 @@
-"""Forward quick-panel requests to the GUI in the current Hyprland session."""
+"""Open the editor or a quick panel in the current Hyprland session."""
 
 import hashlib
 import os
@@ -20,8 +20,10 @@ def service_name() -> str:
 def forward_panel(bus: QDBusConnection, panel: str) -> bool:
     if not bus.isConnected():
         return False
-    message = QDBusMessage.createMethodCall(service_name(), OBJECT_PATH, APP_ID, "OpenPanel")
-    message.setArguments([panel])
+    method = "OpenEditor" if panel == "editor" else "OpenPanel"
+    message = QDBusMessage.createMethodCall(service_name(), OBJECT_PATH, APP_ID, method)
+    if method == "OpenPanel":
+        message.setArguments([panel])
     reply = bus.call(message, QDBus.CallMode.Block, 2000)
     return reply.type() == QDBusMessage.MessageType.ReplyMessage
 
@@ -48,6 +50,10 @@ class PanelActivation(QObject):
         if self.pending:
             panel, self.pending = self.pending, ""
             self.OpenPanel(panel)
+
+    @Slot()
+    def OpenEditor(self) -> None:
+        self.window.show_editor()
 
     @Slot(str)
     def OpenPanel(self, panel: str) -> None:

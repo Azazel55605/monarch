@@ -975,6 +975,57 @@ def test_gui_tray_default_and_explicit_opt_out(monkeypatch):
     assert calls[-1]["quick_panel"] == "external"
 
 
+def test_login_runner_starts_hidden_and_reopens_without_a_tray(qapp, qtbot, monkeypatch):
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    from monarch.ui import app
+
+    windows = []
+    activations = []
+
+    def create_window(*args, **kwargs):
+        window = MainWindow(*args, **kwargs)
+        qtbot.addWidget(window)
+        windows.append(window)
+        return window
+
+    def register(activation, bus):
+        activations.append(activation)
+        return False
+
+    def run():
+        window = windows[0]
+        assert not window.isVisible() and not window.isMinimized()
+        assert window.backend.isRunning()
+        activations[0].OpenEditor()
+        assert window.isVisible()
+        window.close()
+        assert not window.isVisible() and window.backend.isRunning()
+        return 0
+
+    quit_on_close = qapp.quitOnLastWindowClosed()
+    monkeypatch.delenv("HYPRLAND_INSTANCE_SIGNATURE", raising=False)
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: False)
+    monkeypatch.setattr(app, "MainWindow", create_window)
+    monkeypatch.setattr(app.PanelActivation, "register", register)
+    monkeypatch.setattr(qapp, "exec", run)
+    try:
+        assert app.launch(background=True) == 0
+        assert not qapp.quitOnLastWindowClosed()
+        assert not windows[0].backend.isRunning()
+    finally:
+        qapp.setQuitOnLastWindowClosed(quit_on_close)
+
+
+def test_plain_gui_opens_the_existing_editor(qapp, monkeypatch):
+    from monarch.ui import app
+
+    requests = []
+    monkeypatch.setattr(app, "forward_panel", lambda bus, panel: requests.append(panel) or True)
+    assert app.launch() == 0
+    assert requests == ["editor"]
+
+
 def test_selecting_nearby_monitor_does_not_snap_or_change_layout(qtbot):
     from monarch.domain.layout import Layout, Output
     from monarch.ui.canvas import FACTOR, LayoutCanvas

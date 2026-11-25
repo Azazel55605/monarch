@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
         startup_profile: str = "",
         persist_profile: bool = False,
         tray_enabled: bool = False,
+        background: bool = False,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Monarch · Displays")
@@ -82,6 +83,7 @@ class MainWindow(QMainWindow):
         self.model = EditorModel()
         self.backend = backend
         self.quit_on_close = quit_on_close
+        self.background = background
         self.advanced_dialog: AdvancedDialog | None = None
         self.diagnostics_dialog: DiagnosticsDialog | None = None
         self.automation_dialog: AutomationDialog | None = None
@@ -1185,8 +1187,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if (
-            self.tray
-            and QSystemTrayIcon.isSystemTrayAvailable()
+            (self.background or (self.tray and QSystemTrayIcon.isSystemTrayAvailable()))
             and not self._closing
             and not self._quit_requested
         ):

@@ -212,7 +212,8 @@ mutation. GUI, tray and terminal clients use the same coordinator and session lo
 Appearance uses the Qt platform theme and QStyleFactory rather than a global
 stylesheet/palette. Same-major/minor system plugin trees augment wheel discovery;
 Qt validates individual plugins. Optional tray actions surface visible GUI
-confirmation and never imply Keep or save-on-login. Closing exits the tray too.
+confirmation and never imply Keep or save-on-login. Closing the editor hides it
+when the tray or login runner is active.
 
 ## Implemented automatic preview lifecycle
 
@@ -229,8 +230,8 @@ same-set unexplained drift remains refused. A revoked permit cancels apply but
 never blocks recovery. UI offers retain their original authorization snapshot.
 
 The XDG desktop entry is opt-in, receipt/hash protected and points to the current
-interpreter/catalog. It launches a minimized Qt/tray confirmation surface, not an
-unattended auto-confirm daemon. Plain Hyprland needs a session autostart host or
+interpreter/catalog. It starts with the editor hidden and opens a confirmation
+window when an automatic preview is offered. Plain Hyprland needs a session autostart host or
 an explicit existing-session launcher. Physical dock/resume/login acceptance is
 separate from the implemented software and native virtual-output checks.
 
